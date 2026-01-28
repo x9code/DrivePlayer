@@ -1,6 +1,9 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { FaPlay, FaPause, FaStepForward, FaStepBackward, FaVolumeUp, FaRandom, FaRedo, FaChevronDown } from 'react-icons/fa';
 
+// Use environment variable for API URL in production (Vercel), fall back to relative path (proxy) in dev
+const API_BASE = import.meta.env.VITE_API_URL || '';
+
 const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffle, repeatMode, onShuffleToggle, onRepeatToggle }) => {
     const audioRef = useRef(null);
     const [progress, setProgress] = React.useState(0);
@@ -17,7 +20,7 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
             // Log for debugging
             // console.log("Fetching metadata for:", currentSong.name);
 
-            fetch(`http://localhost:5000/api/metadata/${currentSong.id}`)
+            fetch(`${API_BASE}/api/metadata/${currentSong.id}`)
                 .then(res => res.json())
                 .then(data => {
                     setMeta(data);
@@ -119,7 +122,7 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
                     ${isExpanded ? 'w-56 h-56 md:w-64 md:h-64 lg:w-80 lg:h-80 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)]' : 'w-14 h-14 shrink-0'}`
                 }>
                     <img
-                        src={`http://localhost:5000/api/thumbnail/${currentSong.id}`}
+                        src={`${API_BASE}/api/thumbnail/${currentSong.id}`}
                         alt="Art"
                         className="w-full h-full object-cover"
                         onError={(e) => { e.target.style.display = 'none'; }}
@@ -287,7 +290,7 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
             {currentSong && (
                 <audio
                     ref={audioRef}
-                    src={`http://localhost:5000/api/stream/${currentSong.id}`}
+                    src={`${API_BASE}/api/stream/${currentSong.id}`}
                     onTimeUpdate={handleTimeUpdate}
                     onEnded={() => onNext(true)}
                     autoPlay

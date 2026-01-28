@@ -5,6 +5,9 @@ import Player from './components/Player'
 import SongList from './components/SongList'
 import { FaGoogleDrive, FaSearch, FaTimes } from 'react-icons/fa'
 
+// Environment variable for API URL (Production vs Dev)
+const API_BASE = import.meta.env.VITE_API_URL || '';
+
 function App() {
   const [files, setFiles] = useState([])
   const [loading, setLoading] = useState(true)
@@ -26,8 +29,8 @@ function App() {
     setLoading(true);
     try {
       const url = folderId
-        ? `http://localhost:5000/api/files?folderId=${folderId}`
-        : `http://localhost:5000/api/files`;
+        ? `${API_BASE}/api/files?folderId=${folderId}`
+        : `${API_BASE}/api/files`;
 
       const res = await axios.get(url);
       setFiles(res.data.files);
@@ -54,7 +57,7 @@ function App() {
     setLoading(true);
     setIsSearching(true);
     try {
-      const res = await axios.get(`http://localhost:5000/api/search?q=${encodeURIComponent(query)}`);
+      const res = await axios.get(`${API_BASE}/api/search?q=${encodeURIComponent(query)}`);
       setFiles(res.data);
     } catch (error) {
       console.error("Search error:", error);
