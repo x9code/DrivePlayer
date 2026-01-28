@@ -49,8 +49,39 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
             } else {
                 audioRef.current.pause();
             }
+
+            // MediaSession API for Background Playback & Lock Screen Controls
+            if ('mediaSession' in navigator) {
+                navigator.mediaSession.metadata = new MediaMetadata({
+                    title: meta.title || currentSong.name,
+                    artist: meta.artist || 'Google Drive',
+                    album: meta.album || 'DrivePlayer',
+                    artwork: [
+                        { src: `${API_BASE}/api/thumbnail/${currentSong.id}`, sizes: '512x512', type: 'image/png' }
+                    ]
+                });
+
+                navigator.mediaSession.setActionHandler('play', () => {
+                    setIsPlaying(true);
+                    audioRef.current.play();
+                });
+                navigator.mediaSession.setActionHandler('pause', () => {
+                    setIsPlaying(false);
+                    audioRef.current.pause();
+                });
+                navigator.mediaSession.setActionHandler('previoustrack', () => onPrev());
+                navigator.mediaSession.setActionHandler('nexttrack', () => onNext(false));
+
+                // Optional: Seek support
+                navigator.mediaSession.setActionHandler('seekto', (details) => {
+                    if (details.seekTime && audioRef.current) {
+                        audioRef.current.currentTime = details.seekTime;
+                        setProgress(details.seekTime);
+                    }
+                });
+            }
         }
-    }, [currentSong, isPlaying]);
+    }, [currentSong, isPlaying, meta, onNext, onPrev, setIsPlaying]);
 
     const handleTimeUpdate = () => {
         const current = audioRef.current.currentTime;
