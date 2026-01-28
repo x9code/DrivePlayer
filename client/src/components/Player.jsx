@@ -115,11 +115,11 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
             )}
 
             {/* Content Container */}
-            <div className={`flex ${isExpanded ? 'flex-col items-center w-full max-w-md gap-6' : 'w-full flex-row items-center justify-between'}`}>
+            <div className={`flex ${isExpanded ? 'flex-col items-center w-full max-w-md gap-6' : 'w-full flex-row items-center gap-3'}`}>
 
                 {/* Album Art */}
-                <div className={`relative shadow-2xl overflow-hidden rounded-md transition-all duration-300
-                    ${isExpanded ? 'w-56 h-56 md:w-64 md:h-64 lg:w-80 lg:h-80 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)]' : 'w-14 h-14 shrink-0'}`
+                <div className={`relative shadow-2xl overflow-hidden rounded-md transition-all duration-300 flex-shrink-0
+                    ${isExpanded ? 'w-56 h-56 md:w-64 md:h-64 lg:w-80 lg:h-80 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)]' : 'w-12 h-12'}`
                 }>
                     <img
                         src={`${API_BASE}/api/thumbnail/${currentSong.id}`}
@@ -132,17 +132,17 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
                     <div className="absolute inset-0 bg-gradient-to-br from-gray-800 to-black -z-10"></div>
                 </div>
 
-                {/* Song Meta */}
-                <div className={`${isExpanded ? 'text-center w-full' : 'w-1/3 ml-4 mr-auto overflow-hidden'}`}>
-                    <h3 className={`font-bold text-white truncate ${isExpanded ? 'text-2xl mb-1' : 'text-base'}`}>
+                {/* Song Meta - Takes available space */}
+                <div className={`${isExpanded ? 'text-center w-full' : 'flex-1 min-w-0 overflow-hidden'}`}>
+                    <h3 className={`font-bold text-white truncate ${isExpanded ? 'text-2xl mb-1' : 'text-sm'}`}>
                         {meta.title || currentSong.name}
                     </h3>
-                    <p className={`text-zinc-400 truncate ${isExpanded ? 'text-base' : 'text-sm'}`}>
+                    <p className={`text-zinc-400 truncate ${isExpanded ? 'text-base' : 'text-xs'}`}>
                         {meta.artist || 'Google Drive'}
                     </p>
                 </div>
 
-                {/* Progress Bar (Full Screen only, otherwise it's in controls group) */}
+                {/* Progress Bar (Full Screen only) */}
                 {isExpanded && (
                     <div className="w-full flex flex-col gap-2">
                         <div className="w-full h-1 bg-gray-600 rounded-lg cursor-pointer group relative">
@@ -169,7 +169,7 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
                 )}
 
                 {/* Controls Section */}
-                <div className={`${isExpanded ? 'w-full flex justify-between items-center max-w-sm' : 'flex flex-col items-center w-1/3 gap-2'}`}>
+                <div className={`${isExpanded ? 'w-full flex justify-between items-center max-w-sm' : 'flex items-center gap-3 flex-shrink-0'}`}>
 
                     {/* Extra Controls Wrapper for Full Screen Layout */}
                     {isExpanded ? (
@@ -198,63 +198,45 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
                             </div>
                         </>
                     ) : (
-                        /* Mini Player Controls */
+                        /* Mini Player Controls - Simplified for Mobile */
                         <>
-                            <div className="flex items-center gap-6">
+                            <div className="flex items-center gap-3 sm:gap-4">
+                                {/* Hide Shuffle/Prev/Repeat on very small screens */}
                                 <button
                                     onClick={(e) => { e.stopPropagation(); onShuffleToggle(); }}
-                                    className={`transition-colors flex items-center justify-center w-8 h-8 rounded-full ${isShuffle ? 'text-green-500' : 'text-zinc-400 hover:text-white'}`}
+                                    className={`hidden sm:flex transition-colors items-center justify-center w-8 h-8 rounded-full ${isShuffle ? 'text-green-500' : 'text-zinc-400 hover:text-white'}`}
                                 >
                                     <FaRandom size={16} />
-                                    {isShuffle && <div className="absolute -bottom-1 w-1 h-1 bg-green-500 rounded-full"></div>}
                                 </button>
 
-                                <button onClick={(e) => { e.stopPropagation(); onPrev(); }} className="text-zinc-400 hover:text-white transition-colors"><FaStepBackward size={20} /></button>
+                                <button onClick={(e) => { e.stopPropagation(); onPrev(); }} className="hidden sm:block text-zinc-400 hover:text-white transition-colors"><FaStepBackward size={20} /></button>
 
                                 <button
                                     onClick={togglePlay}
-                                    className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-black hover:scale-105 transition-transform"
+                                    className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-black hover:scale-105 transition-transform shadow-md"
                                     disabled={!currentSong}
                                 >
                                     {isPlaying ? <FaPause size={16} /> : <FaPlay size={16} className="ml-0.5" />}
                                 </button>
 
-                                <button onClick={(e) => { e.stopPropagation(); onNext(false); }} className="text-zinc-400 hover:text-white transition-colors"><FaStepForward size={20} /></button>
+                                <button onClick={(e) => { e.stopPropagation(); onNext(false); }} className="text-zinc-400 hover:text-white transition-colors"><FaStepForward size={24} /></button>
 
                                 <button
                                     onClick={(e) => { e.stopPropagation(); onRepeatToggle(); }}
-                                    className={`transition-colors relative flex items-center justify-center w-8 h-8 rounded-full ${repeatMode > 0 ? 'text-green-500' : 'text-zinc-400 hover:text-white'}`}
+                                    className={`hidden sm:flex transition-colors relative items-center justify-center w-8 h-8 rounded-full ${repeatMode > 0 ? 'text-green-500' : 'text-zinc-400 hover:text-white'}`}
                                 >
                                     <FaRedo size={16} />
                                     {repeatMode === 2 && <span className="absolute -top-1 right-0 text-[10px] font-bold bg-black text-green-500 px-0.5" style={{ lineHeight: '10px' }}>1</span>}
-                                    {repeatMode > 0 && <div className="absolute -bottom-1 w-1 h-1 bg-green-500 rounded-full"></div>}
                                 </button>
-                            </div>
-
-                            {/* Mini Progress Bar */}
-                            <div className="w-full flex items-center gap-3 text-xs text-zinc-400 font-mono" onClick={(e) => e.stopPropagation()}>
-                                <span>{formatTime(progress)}</span>
-                                <input
-                                    type="range"
-                                    min="0"
-                                    max={duration || 0}
-                                    value={progress}
-                                    onChange={handleSeek}
-                                    className="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer hover:bg-green-500 accent-white"
-                                    style={{
-                                        background: `linear-gradient(to right, #22c55e ${duration ? (progress / duration) * 100 : 0}%, #4b5563 0)`
-                                    }}
-                                />
-                                <span>{formatTime(duration)}</span>
                             </div>
                         </>
                     )}
                 </div>
 
-                {/* Volume (Mini Only - typically full screen hides or puts elsewhere, or we can keep it?) */}
+                {/* Volume (Mini Only - Hidden on Mobile) */}
                 {!isExpanded && (
-                    <div className="w-1/3 flex justify-end items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                        <FaVolumeUp className="text-light" />
+                    <div className="hidden md:flex flex-shrink-0 w-28 justify-end items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                        <FaVolumeUp className="text-zinc-400 text-xs" />
                         <input
                             type="range"
                             min="0"
@@ -262,7 +244,7 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
                             step="0.01"
                             value={volume}
                             onChange={handleVolume}
-                            className="w-24 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer hover:bg-primary/50"
+                            className="w-16 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer hover:bg-green-500"
                         />
                     </div>
                 )}
