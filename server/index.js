@@ -23,6 +23,15 @@ let driveClient = null;
 
 async function authenticateDrive() {
     try {
+        // 1. Check if the environment variable contains JSON content directly (Render/Vercel)
+        if (process.env.GOOGLE_APPLICATION_CREDENTIALS && process.env.GOOGLE_APPLICATION_CREDENTIALS.trim().startsWith('{')) {
+            const credsPath = path.join(__dirname, 'google-credentials.json');
+            fs.writeFileSync(credsPath, process.env.GOOGLE_APPLICATION_CREDENTIALS);
+            process.env.GOOGLE_APPLICATION_CREDENTIALS = credsPath;
+            console.log('Detected JSON credentials, wrote to file:', credsPath);
+        }
+
+        // 2. Now use the file path (either original path or our newly created temp file)
         if (process.env.GOOGLE_APPLICATION_CREDENTIALS && fs.existsSync(process.env.GOOGLE_APPLICATION_CREDENTIALS)) {
             const auth = new google.auth.GoogleAuth({
                 keyFile: process.env.GOOGLE_APPLICATION_CREDENTIALS,
