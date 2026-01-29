@@ -144,6 +144,12 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
                         }
                     });
                     break;
+                case 'KeyN':
+                    onNext(false);
+                    break;
+                case 'KeyP':
+                    onPrev();
+                    break;
                 default:
                     break;
             }
