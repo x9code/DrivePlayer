@@ -254,11 +254,16 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
             let barHeight;
             let x = 0;
 
-            // Gradient for bars
-            const gradient = ctx.createLinearGradient(0, height / 2, 0, height);
+            // Gradient for bars (Flat with subtle fade)
+            const gradient = ctx.createLinearGradient(0, 0, 0, height);
             const color = visualizerColorRef.current;
-            gradient.addColorStop(0, `rgba(${color}, 0.2)`); // Top fade
-            gradient.addColorStop(1, `rgba(${color}, 0.9)`); // Bottom solid
+
+            // Remove Glow Effect (Flat look)
+            ctx.shadowBlur = 0;
+            ctx.shadowColor = 'transparent';
+
+            gradient.addColorStop(0, `rgba(${color}, 0.6)`);   // Slightly transparent top
+            gradient.addColorStop(1, `rgba(${color}, 1.0)`);   // Solid base
 
             ctx.fillStyle = gradient;
 
@@ -484,13 +489,14 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
                 </div>
 
                 {/* Audio Visualizer Canvas (Bottom Screen) */}
-                <canvas
-                    ref={canvasRef}
-                    width={1000}
-                    height={300}
-                    className="absolute bottom-0 left-0 w-full h-64 opacity-60 pointer-events-none z-0"
-                    style={{ maskImage: 'linear-gradient(to top, black, transparent)' }}
-                />
+                <div className="absolute bottom-0 left-0 w-full h-64 pointer-events-none z-0">
+                    <canvas
+                        ref={canvasRef}
+                        width={1000}
+                        height={300}
+                        className="w-full h-full opacity-100"
+                    />
+                </div>
 
                 {/* Content */}
                 <div className="flex flex-col items-center w-full max-w-md gap-6">
