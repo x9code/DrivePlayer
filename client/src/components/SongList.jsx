@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { FaPlay, FaFolder, FaArrowLeft, FaClock, FaSortAmountDown, FaSortAmountUp, FaFilter } from 'react-icons/fa';
 
-const SongList = ({ files, currentSong, onPlay, onFolderClick, loading, onBack, canGoBack, onShufflePlay, sortOption, sortDirection, onSortChange }) => {
+const SongList = ({ files, currentSong, onPlay, onFolderClick, loading, onBack, canGoBack, onShufflePlay, sortOption, sortDirection, onSortChange, cleanTitle }) => {
 
     const [showSortMenu, setShowSortMenu] = useState(false);
 
     // Separate content
     const folders = files.filter(f => f.mimeType === 'application/vnd.google-apps.folder');
     const songs = files.filter(f => f.mimeType !== 'application/vnd.google-apps.folder');
+
+
 
     // Format Bytes
     const formatSize = (bytes) => {
@@ -18,19 +20,7 @@ const SongList = ({ files, currentSong, onPlay, onFolderClick, loading, onBack, 
         return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
     };
 
-    // Clean Title Helper
-    const cleanTitle = (fileName) => {
-        let name = fileName.replace(/\.[^/.]+$/, ""); // Remove extension
-        name = name.replace(/^\d+[\.\-\s]+/, "");    // Remove initial numbering "01. "
 
-        // Remove "Artist - " prefix if present (simple heuristic: looks for " - " separator)
-        const parts = name.split(' - ');
-        if (parts.length > 1) {
-            return parts.slice(1).join(' - ');
-        }
-
-        return name;
-    };
 
     return (
         <div className="w-full max-w-7xl mx-auto pb-32 pt-6 px-4 md:px-8">

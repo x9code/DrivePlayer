@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import axios from 'axios'
 import Player from './components/Player'
 import SongList from './components/SongList'
@@ -63,6 +63,72 @@ function App() {
   }, [files, sortOption, sortDirection]);
 
   const sortedFiles = getSortedFiles();
+
+  // --- Title Cleaning Logic (Moved from SongList for consistency) ---
+
+  // Helper: Find common terms (likely Artists) to help parsing
+  const getCommonArtistTerms = useMemo(() => {
+    const songs = sortedFiles.filter(f => f.mimeType !== 'application/vnd.google-apps.folder');
+    const termCounts = {};
+    const threshold = 2;
+
+    songs.forEach(s => {
+      const name = s.name.replace(/\.[^/.]+$/, "").replace(/^\d+[\.\-\s]+/, "");
+      const parts = name.split(' - ').map(p => p.trim());
+      parts.forEach(p => {
+        if (p.length > 2 && !/^\d+$/.test(p)) {
+          termCounts[p] = (termCounts[p] || 0) + 1;
+        }
+      });
+    });
+
+    const common = new Set();
+    Object.entries(termCounts).forEach(([term, count]) => {
+      if (count >= threshold) common.add(term.toLowerCase());
+    });
+    return common;
+  }, [sortedFiles]);
+
+  const cleanTitle = useCallback((fileName) => {
+    let name = fileName.replace(/\.[^/.]+$/, ""); // Remove extension
+    name = name.replace(/^\d+[\.\-\s]+/, "");    // Remove initial numbering
+
+    const parts = name.split(' - ');
+
+    if (parts.length > 1) {
+      const part1 = parts[0].trim();
+      const part2 = parts.slice(1).join(' - ').trim();
+
+      const p1Lower = part1.toLowerCase();
+      const p2Lower = part2.toLowerCase();
+
+      // Frequency Heuristic
+      const p1IsCommon = getCommonArtistTerms.has(p1Lower);
+      const p2IsCommon = getCommonArtistTerms.has(p2Lower);
+
+      if (p1IsCommon && !p2IsCommon) return part2;
+      if (p2IsCommon && !p1IsCommon) return part1;
+
+      // Comma Heuristic
+      const p1Commas = (part1.match(/,/g) || []).length;
+      const p2Commas = (part2.match(/,/g) || []).length;
+      if (p1Commas > 0 && p2Commas === 0) return part2;
+      if (p2Commas > 0 && p1Commas === 0) return part1;
+
+      // Feat Heuristic
+      const featRegex = /\s(feat|ft|featuring)\.?\s/i;
+      if (featRegex.test(part1) && !featRegex.test(part2)) return part2;
+      if (featRegex.test(part2) && !featRegex.test(part1)) return part1;
+
+      // Suffix Heuristic
+      const suffixes = ['remix', 'mix', 'live', 'edit', 'version', 'ver', 'cover', 'official', 'video', 'audio', 'lyrics', 'remastered', 'instrumental'];
+      if (suffixes.some(s => p2Lower.includes(s))) return name;
+
+      // Default
+      return name;
+    }
+    return name;
+  }, [getCommonArtistTerms]);
 
   // Fetch files (songs + folders)
   const fetchFiles = async (folderId = null) => {
@@ -323,6 +389,7 @@ function App() {
           sortOption={sortOption}
           sortDirection={sortDirection}
           onSortChange={handleSortChange}
+          cleanTitle={cleanTitle}
         />
       </main>
 
@@ -337,6 +404,7 @@ function App() {
         repeatMode={repeatMode}
         onShuffleToggle={() => setIsShuffle(!isShuffle)}
         onRepeatToggle={toggleRepeat}
+        cleanTitle={cleanTitle}
       />
     </div>
   )
