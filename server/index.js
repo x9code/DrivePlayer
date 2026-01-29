@@ -261,6 +261,71 @@ app.get('/api/metadata/:fileId', async (req, res) => {
     }
 });
 
+// --- Custom Folder Covers ---
+const multer = require('multer');
+
+// Configure storage
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        const dir = path.join(__dirname, 'custom_covers');
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir);
+        cb(null, dir);
+    },
+    filename: function (req, file, cb) {
+        // Use folderId as filename (we get it from body)
+        // Note: req.body might not be populated before file if not ordered correctly,
+        // but multer handles this if fields come before files or if we rename later.
+        // Easier approach: Save as temp, rename in handler.
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, file.fieldname + '-' + uniqueSuffix);
+    }
+});
+
+const upload = multer({
+    storage: storage,
+    limits: { fileSize: 5 * 1024 * 1024 } // 5MB Limit
+});
+
+// API: Upload Cover
+app.post('/api/folder/cover', upload.single('image'), (req, res) => {
+    const folderId = req.body.folderId;
+    if (!folderId || !req.file) {
+        return res.status(400).json({ error: 'Missing folderId or image' });
+    }
+
+    const tempPath = req.file.path;
+    const targetPath = path.join(__dirname, 'custom_covers', `${folderId}.png`);
+
+    try {
+        // Delete old cover if exists
+        if (fs.existsSync(targetPath)) {
+            fs.unlinkSync(targetPath);
+        }
+
+        // Rename/Move uploaded file to target
+        fs.renameSync(tempPath, targetPath);
+
+        res.json({ success: true, message: 'Cover updated' });
+    } catch (err) {
+        console.error("Cover upload error:", err);
+        res.status(500).json({ error: 'Failed to save cover' });
+    }
+});
+
+// API: Get Custom Cover
+app.get('/api/folder/cover/:folderId', (req, res) => {
+    const folderId = req.params.folderId;
+    const coverPath = path.join(__dirname, 'custom_covers', `${folderId}.png`);
+
+    if (fs.existsSync(coverPath)) {
+        res.sendFile(coverPath);
+    } else {
+        res.status(404).send('No custom cover');
+    }
+});
+// ----------------------------
+
+
 // API: Get Thumbnail
 app.get('/api/thumbnail/:fileId', async (req, res) => {
     const fileId = req.params.fileId;

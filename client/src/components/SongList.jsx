@@ -1,9 +1,43 @@
 import React, { useState } from 'react';
-import { FaPlay, FaFolder, FaArrowLeft, FaClock, FaSortAmountDown, FaSortAmountUp, FaFilter } from 'react-icons/fa';
+import { FaPlay, FaFolder, FaArrowLeft, FaClock, FaSortAmountDown, FaSortAmountUp, FaFilter, FaPencilAlt } from 'react-icons/fa';
+import axios from 'axios';
+
+const API_BASE = import.meta.env.VITE_API_URL || '';
 
 const SongList = ({ files, currentSong, onPlay, onFolderClick, onFolderPlay, loading, onBack, canGoBack, onShufflePlay, sortOption, sortDirection, onSortChange, cleanTitle }) => {
 
     const [showSortMenu, setShowSortMenu] = useState(false);
+    const [uploading, setUploading] = useState(null); // folderId being uploaded to
+    const [cacheBuster, setCacheBuster] = useState(Date.now()); // Force image refresh
+
+    const handleCoverUpload = async (folderId, file) => {
+        if (!file) return;
+
+        // Validation: 5MB Limit
+        if (file.size > 5 * 1024 * 1024) {
+            alert("Image is too large! Please upload a cover smaller than 5MB.");
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('folderId', folderId);
+        formData.append('image', file);
+
+        setUploading(folderId);
+
+        try {
+            await axios.post(`${API_BASE}/api/folder/cover`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            // Success: Update cache buster to refresh images
+            setCacheBuster(Date.now());
+        } catch (error) {
+            console.error("Upload failed", error);
+            alert("Failed to upload cover.");
+        } finally {
+            setUploading(null);
+        }
+    };
 
     // Separate content
     const folders = files.filter(f => f.mimeType === 'application/vnd.google-apps.folder');
@@ -100,25 +134,53 @@ const SongList = ({ files, currentSong, onPlay, onFolderClick, onFolderPlay, loa
                     <h3 className="text-xl font-bold mb-4 text-white">Folders</h3>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
                         {folders.map(folder => {
-                            // Deterministic cover selection
+                            // Deterministic cover selection (Fallback)
                             const hash = folder.name.split("").reduce((a, b) => {
                                 a = ((a << 5) - a) + b.charCodeAt(0);
                                 return a & a;
                             }, 0);
                             const coverIndex = (Math.abs(hash) % 4) + 1;
+                            const defaultCover = `/covers/${coverIndex}.png`;
+                            const customCoverUrl = `${API_BASE}/api/folder/cover/${folder.id}?t=${cacheBuster}`;
 
                             return (
                                 <div
                                     key={folder.id}
                                     onClick={() => onFolderClick(folder.id)}
-                                    className="group bg-[#181818] hover:bg-[#282828] transition-all duration-300 p-4 rounded-md cursor-pointer flex flex-col gap-4 shadow-lg hover:shadow-2xl"
+                                    className="group bg-[#181818] hover:bg-[#282828] transition-all duration-300 p-4 rounded-md cursor-pointer flex flex-col gap-4 shadow-lg hover:shadow-2xl relative"
                                 >
                                     <div className="relative w-full aspect-square rounded-md shadow-lg flex items-center justify-center overflow-hidden bg-zinc-800">
                                         <img
-                                            src={`/covers/${coverIndex}.png`}
+                                            src={customCoverUrl}
+                                            onError={(e) => { e.target.onerror = null; e.target.src = defaultCover; }}
                                             alt={folder.name}
-                                            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                            className={`w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 ${uploading === folder.id ? 'opacity-50 blur-sm' : ''}`}
                                         />
+
+                                        {/* Loading Spinner during Upload */}
+                                        {uploading === folder.id && (
+                                            <div className="absolute inset-0 flex items-center justify-center">
+                                                <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+                                            </div>
+                                        )}
+
+                                        {/* Play & Edit Buttons Overlay */}
+                                        {/* Edit Button (Top-Left) */}
+                                        <label
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="absolute left-2 top-2 opacity-0 group-hover:opacity-100 transition-all duration-300 z-10 bg-black/60 hover:bg-black/80 text-white rounded-full p-2.5 shadow-lg backdrop-blur-sm hover:scale-105 cursor-pointer"
+                                            title="Change Cover Image"
+                                        >
+                                            <FaPencilAlt size={14} />
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                className="hidden"
+                                                onChange={(e) => handleCoverUpload(folder.id, e.target.files[0])}
+                                            />
+                                        </label>
+
+                                        {/* Play Button (Bottom-Right) */}
                                         <div className="absolute right-2 bottom-2 translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 shadow-xl z-10">
                                             <div
                                                 onClick={(e) => {
