@@ -321,43 +321,58 @@ function App() {
     fetchFiles(folderId);
   };
 
-  // Handle starting shuffle play directly from a folder
-  const handleFolderPlay = async (folderId) => {
-    // 1. Enter the folder (UI update)
-    if (isSearching) {
-      setSearchQuery('');
-      setIsSearching(false);
+  // Listen for song ended event to auto-play next
+  useEffect(() => {
+    const handleSongEnded = () => {
+      handleNext(true); // Auto advance
+    };
+    window.addEventListener('audio-ended', handleSongEnded);
+    return () => window.removeEventListener('audio-ended', handleSongEnded);
+  }, [currentSong, isShuffle, repeatMode, sortedFiles]); // sortedFiles dependency? -> We will fix this by using a queue ref or state
+
+  // --- Queue System ---
+  const [queue, setQueue] = useState([]);
+
+  // Handle Play (Single Song Click in Current View)
+  const handlePlay = (song) => {
+    if (currentSong?.id === song.id) {
+      setIsPlaying(!isPlaying);
+    } else {
+      // Set Queue to current view's songs
+      const currentSongs = sortedFiles.filter(f => f.mimeType !== 'application/vnd.google-apps.folder');
+      setQueue(currentSongs);
+      setCurrentSong(song);
+      setIsPlaying(true);
     }
+  };
 
-    // Update URL
-    window.history.pushState({ folderId }, '', `?folder=${folderId}`);
-    setCurrentFolderId(folderId);
+  // Handle Folder Play (Background Queue)
+  const handleFolderPlay = async (folderId) => {
+    // 1. Fetch files specifically for this folder
+    // Note: We do NOT navigate (pushState/setCurrentFolderId)
+    // We do NOT setFiles (so view stays same)
 
-    // 2. Fetch files specifically for this folder
-    setLoading(true);
     try {
       const url = `${API_BASE}/api/files?folderId=${folderId}`;
       const res = await axios.get(url);
 
       const fetchedFiles = res.data.files;
-      setFiles(fetchedFiles);
-
-      // Update cache
-      fileCache.current[folderId] = fetchedFiles;
-
-      // 3. Start Shuffle Play
+      // Filter for songs
       const songList = fetchedFiles.filter(f => f.mimeType !== 'application/vnd.google-apps.folder');
 
       if (songList.length > 0) {
-        setIsShuffle(true); // Enable Shuffle
+        // 2. Set Queue & Start Shuffle Play
+        setQueue(songList);
+        setIsShuffle(true);
+
         const randomIndex = Math.floor(Math.random() * songList.length);
         setCurrentSong(songList[randomIndex]);
         setIsPlaying(true);
+      } else {
+        alert("No audio files found in this folder.");
       }
     } catch (error) {
       console.error("Error fetching folder for playback:", error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -370,82 +385,80 @@ function App() {
     window.history.back();
   };
 
-  const handlePlay = (song) => {
-    if (currentSong?.id === song.id) {
-      setIsPlaying(!isPlaying);
-    } else {
-      setCurrentSong(song);
-      setIsPlaying(true);
-    }
-  };
 
   const handleNext = (auto = false) => {
     if (!currentSong) return;
-    const songList = sortedFiles.filter(f => f.mimeType !== 'application/vnd.google-apps.folder');
-    if (songList.length === 0) return;
 
-    // Repeat One logic: Only if auto-advanced (song ended)
+    // Use QUEUE if available, otherwise fallback to sortedFiles (legacy/safety)
+    const activeList = queue.length > 0 ? queue : sortedFiles.filter(f => f.mimeType !== 'application/vnd.google-apps.folder');
+
+    if (activeList.length === 0) return;
+
+    // Repeat One logic
     if (repeatMode === 2 && auto) {
-      const currentIndex = songList.findIndex(s => s.id === currentSong.id);
-      setCurrentSong(songList[currentIndex]);
-      setIsPlaying(true); // Ensure play continues
+      // Re-find current song to be safe
+      const currentIndex = activeList.findIndex(s => s.id === currentSong.id);
+      if (currentIndex !== -1) setCurrentSong(activeList[currentIndex]);
+      setIsPlaying(true);
       return;
     }
 
     if (isShuffle) {
-      // Simple random shuffle (can be optimized to avoid repeats)
-      let randomIndex = Math.floor(Math.random() * songList.length);
-      if (songList.length > 1 && songList[randomIndex].id === currentSong.id) {
-        randomIndex = (randomIndex + 1) % songList.length;
+      let randomIndex = Math.floor(Math.random() * activeList.length);
+      // Avoid repeating same song if possible
+      if (activeList.length > 1 && activeList[randomIndex].id === currentSong.id) {
+        randomIndex = (randomIndex + 1) % activeList.length;
       }
-      setCurrentSong(songList[randomIndex]);
+      setCurrentSong(activeList[randomIndex]);
       setIsPlaying(true);
       return;
     }
 
-    // Normal / Repeat All logic
-    const currentIndex = songList.findIndex(s => s.id === currentSong.id);
-    const nextIndex = (currentIndex + 1) % songList.length;
+    // Normal Sequence
+    const currentIndex = activeList.findIndex(s => s.id === currentSong.id);
+    // If song not in queue (e.g. queue changed), start from 0
+    const startIdx = currentIndex === -1 ? 0 : currentIndex;
+    const nextIndex = (startIdx + 1) % activeList.length;
 
-    // Check stop condition: Wrap around, Repeat is Off, and Auto-advance
+    // Stop at end if Repeat is Off
     if (nextIndex === 0 && repeatMode === 0 && auto) {
       setIsPlaying(false);
       return;
     }
 
-    setCurrentSong(songList[nextIndex]);
+    setCurrentSong(activeList[nextIndex]);
     setIsPlaying(true);
   };
 
   const handlePrev = () => {
     if (!currentSong) return;
-    const songList = sortedFiles.filter(f => f.mimeType !== 'application/vnd.google-apps.folder');
-    if (songList.length === 0) return;
-
-    // In shuffle mode, prev could be random or history. Using logic relative to list for simplicity or repeat current.
-    // If repeat one is on, standard behavior is prev song, not replay current (unless seeking behavior implemented).
+    const activeList = queue.length > 0 ? queue : sortedFiles.filter(f => f.mimeType !== 'application/vnd.google-apps.folder');
+    if (activeList.length === 0) return;
 
     if (isShuffle) {
-      let randomIndex = Math.floor(Math.random() * songList.length);
-      setCurrentSong(songList[randomIndex]);
+      let randomIndex = Math.floor(Math.random() * activeList.length);
+      setCurrentSong(activeList[randomIndex]);
       setIsPlaying(true);
       return;
     }
 
-    const currentIndex = songList.findIndex(s => s.id === currentSong.id);
-    const prevIndex = (currentIndex - 1 + songList.length) % songList.length;
-    setCurrentSong(songList[prevIndex]);
+    const currentIndex = activeList.findIndex(s => s.id === currentSong.id);
+    const startIdx = currentIndex === -1 ? 0 : currentIndex;
+    const prevIndex = (startIdx - 1 + activeList.length) % activeList.length;
+    setCurrentSong(activeList[prevIndex]);
     setIsPlaying(true);
   };
 
   const handleShufflePlay = () => {
+    // Determine context: use current view
     const songList = sortedFiles.filter(f => f.mimeType !== 'application/vnd.google-apps.folder');
     if (songList.length === 0) return;
 
+    setQueue(songList);
     const randomIndex = Math.floor(Math.random() * songList.length);
     setCurrentSong(songList[randomIndex]);
     setIsPlaying(true);
-    setIsShuffle(true); // Enable shuffle mode
+    setIsShuffle(true);
   };
 
   const toggleRepeat = () => {
