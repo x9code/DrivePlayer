@@ -13,6 +13,43 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
     const [isExpanded, setIsExpanded] = useState(false);
     const [meta, setMeta] = useState({ title: null, artist: null });
 
+    // Visualizer Refs
+    const canvasRef = useRef(null);
+    const audioContextRef = useRef(null);
+    const analyserRef = useRef(null);
+    const sourceRef = useRef(null);
+    const animationRef = useRef(null);
+    const visualizerColorRef = useRef('34, 197, 94'); // Default Green
+
+    // Extract dominant color from album art
+    useEffect(() => {
+        if (!currentSong) return;
+
+        const img = new Image();
+        img.crossOrigin = "Anonymous";
+        img.src = `${API_BASE}/api/thumbnail/${currentSong.id}`;
+
+        img.onload = () => {
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = 1;
+                canvas.height = 1;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, 1, 1);
+                const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+                visualizerColorRef.current = `${r}, ${g}, ${b}`;
+            } catch (e) {
+                // Console warn suppressed to avoid noise
+                visualizerColorRef.current = '34, 197, 94';
+            }
+        };
+
+        img.onerror = () => {
+            visualizerColorRef.current = '34, 197, 94';
+        };
+
+    }, [currentSong]);
+
     useEffect(() => {
         if (currentSong) {
             // Reset meta immediately
@@ -158,6 +195,83 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [currentSong, setIsPlaying, onNext, onPrev]);
+
+    // Audio Visualizer Logic
+    useEffect(() => {
+        if (!isExpanded || !audioRef.current) return;
+
+        // Initialize Audio Context if needed
+        if (!audioContextRef.current) {
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioContextRef.current = new AudioContext();
+                analyserRef.current = audioContextRef.current.createAnalyser();
+                analyserRef.current.fftSize = 256; // Controls bar count (128 bars)
+
+                // Connect source
+                if (!sourceRef.current) {
+                    sourceRef.current = audioContextRef.current.createMediaElementSource(audioRef.current);
+                    sourceRef.current.connect(analyserRef.current);
+                    analyserRef.current.connect(audioContextRef.current.destination);
+                }
+            } catch (e) {
+                console.error("Audio Context Error:", e);
+                return;
+            }
+        }
+
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const bufferLength = analyserRef.current.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+
+        const draw = () => {
+            if (!isExpanded) return; // Stop drawing if closed
+
+            animationRef.current = requestAnimationFrame(draw);
+            analyserRef.current.getByteFrequencyData(dataArray);
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const width = canvas.width;
+            const height = canvas.height;
+            const barWidth = (width / bufferLength) * 2.5;
+            let barHeight;
+            let x = 0;
+
+            // Gradient for bars
+            const gradient = ctx.createLinearGradient(0, height / 2, 0, height);
+            const color = visualizerColorRef.current;
+            gradient.addColorStop(0, `rgba(${color}, 0.2)`); // Top fade
+            gradient.addColorStop(1, `rgba(${color}, 0.9)`); // Bottom solid
+
+            ctx.fillStyle = gradient;
+
+            // Draw bars (mirrored or standard? Let's do bottom-aligned for now, simpler)
+            for (let i = 0; i < bufferLength; i++) {
+                barHeight = (dataArray[i] / 255) * (height * 0.8); // Max 80% height
+
+                // Rounded tops
+                ctx.fillRect(x, height - barHeight, barWidth, barHeight);
+
+                x += barWidth + 1;
+            }
+        };
+
+        draw();
+
+        return () => {
+            if (animationRef.current) cancelAnimationFrame(animationRef.current);
+        };
+    }, [isExpanded, currentSong]);
+
+    // Resume AudioContext if suspended (browser policy)
+    useEffect(() => {
+        if (isPlaying && audioContextRef.current && audioContextRef.current.state === 'suspended') {
+            audioContextRef.current.resume();
+        }
+    }, [isPlaying]);
 
     const handleTimeUpdate = () => {
         const current = audioRef.current.currentTime;
@@ -319,6 +433,7 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
                     />
                     <div className="absolute inset-0 bg-black/40"></div>
                 </div>
+
                 {/* Header */}
                 <div className="absolute top-6 left-6 right-6 flex justify-between items-center text-zinc-400">
                     <button onClick={handleCollapse} className="hover:text-white p-2">
@@ -350,8 +465,17 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
                     </div>
 
                     {/* Progress */}
-                    <div className="w-full flex flex-col gap-2">
-                        <div className="w-full h-1 bg-gray-600 rounded-lg cursor-pointer group relative">
+                    <div className="w-full flex flex-col gap-2 relative">
+                        {/* Audio Visualizer Canvas */}
+                        <canvas
+                            ref={canvasRef}
+                            width={600}
+                            height={100}
+                            className="absolute bottom-6 left-0 w-full h-24 opacity-80 pointer-events-none z-0"
+                            style={{ maskImage: 'linear-gradient(to top, black, transparent)' }}
+                        />
+
+                        <div className="w-full h-1 bg-gray-600 rounded-lg cursor-pointer group relative z-10">
                             <input
                                 type="range"
                                 min="0"
@@ -452,6 +576,7 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
             {currentSong && (
                 <audio
                     ref={audioRef}
+                    crossOrigin="anonymous"
                     src={`${API_BASE}/api/stream/${currentSong.id}`}
                     onTimeUpdate={handleTimeUpdate}
                     onEnded={() => onNext(true)}
