@@ -4,7 +4,7 @@ import axios from 'axios';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
-const SongList = ({ files, currentSong, onPlay, onFolderClick, onFolderPlay, loading, onBack, canGoBack, onShufflePlay, sortOption, sortDirection, onSortChange, cleanTitle }) => {
+const SongList = ({ title, files, currentSong, onPlay, onFolderClick, onFolderPlay, loading, onBack, canGoBack, onShufflePlay, sortOption, sortDirection, onSortChange, cleanTitle }) => {
 
     const [showSortMenu, setShowSortMenu] = useState(false);
     const [uploading, setUploading] = useState(null); // folderId being uploaded to
@@ -67,7 +67,7 @@ const SongList = ({ files, currentSong, onPlay, onFolderClick, onFolderPlay, loa
                             <FaArrowLeft />
                         </button>
                     )}
-                    <h2 className="text-3xl font-bold tracking-tight">Library</h2>
+                    <h2 className="text-3xl font-bold tracking-tight">{title || 'Library'}</h2>
                 </div>
 
                 {songs.length > 0 && (

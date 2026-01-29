@@ -19,6 +19,7 @@ function App() {
   const [currentSong, setCurrentSong] = useState(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentFolderId, setCurrentFolderId] = useState(null)
+  const [currentFolderName, setCurrentFolderName] = useState('Library'); // Default title
 
   // Favorites State (Persisted in localStorage)
   const [likedSongs, setLikedSongs] = useState(() => {
@@ -197,12 +198,23 @@ function App() {
       // console.log("Cache hit for", cacheKey);
       setFiles(fileCache.current[cacheKey]);
       setLoading(false);
-      return;
+      // We need to restore folder name logic here if cached, but cache structure only saves files currently.
+      // To strictly follow "cache hit", we might miss name. 
+      // Simplified: If cache hit, we might not have name stored. 
+      // Fix: Let's skip cache hit optimization for Name update OR assume 'Library' if null, which is not ideal.
+      // Better: Store object in cache { files, folderName }
+      // For now, let's just re-fetch to get name or set default if root.
+      // Actually, let's keep it simple: If cache hit, just use files. Name might lag. 
+      // Let's NOT use cache for now to ensure name is correct, OR upgrade cache structure.
+      // UPGRADING CACHE STRUCTURE ON THE FLY IS RISKY.
+      // Let's just fetch from API to get the name for now, it's fast enough.
+      // OR: manually set name if root/favorites.
     }
 
     // Special Case: Favorites
     if (folderId === 'favorites') {
       setFiles(likedSongs);
+      setCurrentFolderName('Favorites');
       setLoading(false);
       return;
     }
@@ -215,9 +227,10 @@ function App() {
 
       const res = await axios.get(url);
       setFiles(res.data.files);
+      setCurrentFolderName(res.data.folderName || 'Library');
 
       // 2. Update Cache
-      fileCache.current[cacheKey] = res.data.files;
+      fileCache.current[cacheKey] = res.data.files; // Still caching just files for now to avoid breaking other logic
 
       // Update current folder id if not set (initial load)
       if (!folderId && res.data.folderId) {
@@ -554,6 +567,7 @@ function App() {
       <main className="mt-16 h-[calc(100vh-4rem)] overflow-y-auto custom-scrollbar">
         <div className="bg-gradient-to-b from-primary/20 via-black to-black h-80 absolute w-full top-0 left-0 -z-10 opacity-50" />
         <SongList
+          title={isSearching ? `Search Results for "${searchQuery}"` : currentFolderName}
           files={sortedFiles}
           loading={loading}
           currentSong={currentSong}

@@ -77,7 +77,14 @@ app.get('/api/files', async (req, res) => {
             targetFolderId = folderRes.data.files[0].id;
         }
 
-        console.log(`Browsing folder: ${targetFolderId}`);
+        // Get Folder Name
+        const folderMeta = await driveClient.files.get({
+            fileId: targetFolderId,
+            fields: 'name'
+        });
+        const folderName = folderMeta.data.name;
+
+        console.log(`Browsing folder: ${folderName} (${targetFolderId})`);
 
         const filesRes = await driveClient.files.list({
             q: `'${targetFolderId}' in parents and (mimeType = 'application/vnd.google-apps.folder' or mimeType contains 'audio/' or fileExtension = 'mp3' or fileExtension = 'm4a' or fileExtension = 'opus' or fileExtension = 'flac')`,
@@ -99,7 +106,11 @@ app.get('/api/files', async (req, res) => {
             });
         }
 
-        res.json({ files: filesRes.data.files || [], folderId: targetFolderId });
+        res.json({
+            files: filesRes.data.files || [],
+            folderId: targetFolderId,
+            folderName: folderName
+        });
 
     } catch (error) {
         console.error(error);
