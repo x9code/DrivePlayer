@@ -571,7 +571,7 @@ function App() {
   return (
     <div className="min-h-screen bg-darker text-white selection:bg-primary selection:text-black">
       {/* Header */}
-      <header className="fixed top-0 w-full z-40 bg-black/40 backdrop-blur-md border-b border-white/5 h-16 flex items-center px-6 justify-between">
+      <header className="fixed top-0 w-full z-40 bg-black border-b border-white/5 h-16 flex items-center px-6 justify-between">
         <div
           onClick={handleGoHome}
           className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
@@ -630,8 +630,8 @@ function App() {
       </header>
 
       {/* Main Content */}
-      <main className="mt-16 h-[calc(100vh-4rem)] overflow-y-auto custom-scrollbar">
-        <div className="bg-gradient-to-b from-primary/20 via-black to-black h-80 absolute w-full top-0 left-0 -z-10 opacity-50" />
+      <main className="mt-16 h-[calc(100vh-4rem)] overflow-y-auto custom-scrollbar relative">
+
         <SongList
           title={isSearching ? `Search Results for "${searchQuery}"` : currentFolderName}
           files={sortedFiles}
