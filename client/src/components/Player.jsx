@@ -499,7 +499,7 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
                 </div>
 
                 {/* Content */}
-                <div className="flex flex-col items-center w-full max-w-md gap-6">
+                <div className="relative z-10 flex flex-col items-center w-full max-w-md gap-6">
                     {/* Art */}
                     <div className="w-64 h-64 lg:w-80 lg:h-80 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden relative">
                         <img

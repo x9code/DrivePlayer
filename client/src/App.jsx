@@ -3,12 +3,17 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import axios from 'axios'
 import Player from './components/Player'
 import SongList from './components/SongList'
-import { FaGoogleDrive, FaSearch, FaTimes, FaHeart, FaRegHeart } from 'react-icons/fa'
+import { FaGoogleDrive, FaSearch, FaTimes, FaHeart, FaRegHeart, FaLock } from 'react-icons/fa'
+import LockScreen from './components/LockScreen'
 
 // Environment variable for API URL (Production vs Dev)
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
 function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return localStorage.getItem('driveplayer_auth') === 'true';
+  });
+
   const [files, setFiles] = useState([])
   const [loading, setLoading] = useState(true)
   const [currentSong, setCurrentSong] = useState(null)
@@ -47,6 +52,17 @@ function App() {
 
   const [isShuffle, setIsShuffle] = useState(false);
   const [repeatMode, setRepeatMode] = useState(0); // 0: Off, 1: All, 2: One
+
+  const handleUnlock = () => {
+    setIsAuthenticated(true);
+    localStorage.setItem('driveplayer_auth', 'true');
+  };
+
+  const handleLock = () => {
+    setIsAuthenticated(false);
+    localStorage.removeItem('driveplayer_auth');
+    setIsPlaying(false); // Stop music on lock
+  };
 
   // Sorting State
   const [sortOption, setSortOption] = useState('name'); // 'name', 'date', 'size'
@@ -400,6 +416,12 @@ function App() {
     window.history.pushState(null, '', '/');
   };
 
+  // If not authenticated, render Lock Screen ONLY
+  // Placed here to ensure all hooks run above
+  // if (!isAuthenticated) {
+  //   return <LockScreen onUnlock={handleUnlock} />;
+  // }
+
   return (
     <div className="min-h-screen bg-darker text-white selection:bg-primary selection:text-black">
       {/* Header */}
@@ -435,6 +457,15 @@ function App() {
         </div>
 
         <div className="flex items-center gap-4">
+          {/* Lock Button (Added) */}
+          <button
+            onClick={handleLock}
+            className="flex items-center justify-center p-2 rounded-full bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-colors"
+            title="Lock App"
+          >
+            <FaLock className="text-sm" />
+          </button>
+
           <button
             onClick={() => {
               setSearchQuery('');
@@ -449,6 +480,7 @@ function App() {
             <span className="hidden sm:inline font-medium">Favorites</span>
           </button>
         </div>
+
       </header>
 
       {/* Main Content */}
@@ -485,6 +517,9 @@ function App() {
         likedSongs={likedSongs}
         toggleLike={toggleLike}
       />
+
+      {/* Lock Screen Overlay - Always rendered for animation */}
+      <LockScreen isLocked={!isAuthenticated} onUnlock={handleUnlock} />
     </div>
   )
 }
