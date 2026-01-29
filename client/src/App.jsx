@@ -87,7 +87,7 @@ function App() {
   const fileCache = useRef({}); // Cache for folder contents
 
   // Sorting Logic
-  const getSortedFiles = useCallback(() => {
+  const sortedFiles = useMemo(() => {
     // 1. Separate folders and files
     const folders = files.filter(f => f.mimeType === 'application/vnd.google-apps.folder');
     let songs = files.filter(f => f.mimeType !== 'application/vnd.google-apps.folder');
@@ -120,8 +120,6 @@ function App() {
     // Let's keep folders top, songs sorted)
     return [...folders, ...songs];
   }, [files, sortOption, sortDirection]);
-
-  const sortedFiles = getSortedFiles();
 
   // --- Title Cleaning Logic (Moved from SongList for consistency) ---
 

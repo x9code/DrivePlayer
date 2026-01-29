@@ -4,6 +4,101 @@ import axios from 'axios';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
+const FolderCard = React.memo(({ folder, onFolderClick, onFolderPlay, uploading, customCoverUrl, defaultCover, handleCoverUpload }) => {
+    return (
+        <div
+            onClick={() => onFolderClick(folder.id)}
+            className="group bg-[#181818] hover:bg-[#282828] transition-all duration-300 p-4 rounded-md cursor-pointer flex flex-col gap-4 shadow-lg hover:shadow-2xl relative"
+        >
+            <div className="relative w-full aspect-square rounded-md shadow-lg flex items-center justify-center overflow-hidden bg-zinc-800">
+                <img
+                    src={customCoverUrl}
+                    onError={(e) => { e.target.onerror = null; e.target.src = defaultCover; }}
+                    alt={folder.name}
+                    className={`w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 ${uploading === folder.id ? 'opacity-50 blur-sm' : ''} will-change-transform`}
+                />
+
+                {/* Loading Spinner during Upload */}
+                {uploading === folder.id && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+                    </div>
+                )}
+
+                {/* Edit Button (Top-Left) */}
+                <label
+                    onClick={(e) => e.stopPropagation()}
+                    className="absolute left-2 top-2 opacity-0 group-hover:opacity-100 transition-all duration-300 z-10 bg-black/60 hover:bg-black/80 text-white rounded-full p-2.5 shadow-lg backdrop-blur-sm hover:scale-105 cursor-pointer"
+                    title="Change Cover Image"
+                >
+                    <FaPencilAlt size={14} />
+                    <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handleCoverUpload(folder.id, e.target.files[0])}
+                    />
+                </label>
+
+                {/* Play Button (Bottom-Right) */}
+                <div className="absolute right-2 bottom-2 translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 shadow-xl z-10">
+                    <div
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onFolderPlay(folder.id);
+                        }}
+                        className="bg-green-500 rounded-full p-3 text-black shadow-lg hover:scale-105 transition-transform hover:bg-green-400"
+                        title="Play Folder (Shuffle)"
+                    >
+                        <FaPlay size={20} className="pl-1" />
+                    </div>
+                </div>
+            </div>
+            <div className="flex flex-col gap-1">
+                <h4 className="font-bold text-white truncate w-full pb-1" title={folder.name}>{folder.name}</h4>
+                <p className="text-sm text-zinc-400">Folder</p>
+            </div>
+        </div>
+    );
+});
+
+const SongRow = React.memo(({ file, index, isCurrent, onPlay, cleanTitle, formatSize }) => {
+    return (
+        <div
+            onClick={() => onPlay(file)}
+            className={`group grid grid-cols-[16px_1fr_100px] md:grid-cols-[40px_1fr_120px] items-center gap-4 px-4 py-2 rounded-md cursor-pointer transition-colors 
+                ${isCurrent ? 'bg-white/10' : 'hover:bg-white/5'}
+            `}
+        >
+            {/* Play/Index Column */}
+            <div className="text-zinc-400 text-center text-sm font-mono flex justify-center items-center h-full">
+                {isCurrent ? (
+                    <img src="https://open.spotifycdn.com/cdn/images/equaliser-animated-green.f93a2ef4.gif" className="h-4 w-4" alt="Playing" />
+                ) : (
+                    <>
+                        <span className="group-hover:hidden">{index + 1}</span>
+                        <FaPlay size={10} className="hidden group-hover:block text-white ml-0.5" />
+                    </>
+                )}
+            </div>
+
+            {/* Title Column */}
+            <div className="flex items-center gap-4 min-w-0">
+                <div className="flex-1 min-w-0">
+                    <h4 className={`truncate font-medium text-[15px] ${isCurrent ? 'text-green-500' : 'text-white'}`}>
+                        {cleanTitle(file.name)}
+                    </h4>
+                </div>
+            </div>
+
+            {/* Size/Duration Column */}
+            <div className="text-sm text-zinc-400 text-right font-variant-numeric tabular-nums">
+                {formatSize(file.size)}
+            </div>
+        </div>
+    );
+});
+
 const SongList = ({ title, files, currentSong, onPlay, onFolderClick, onFolderPlay, loading, onBack, canGoBack, onShufflePlay, sortOption, sortDirection, onSortChange, cleanTitle }) => {
 
     const [showSortMenu, setShowSortMenu] = useState(false);
@@ -43,8 +138,6 @@ const SongList = ({ title, files, currentSong, onPlay, onFolderClick, onFolderPl
     const folders = files.filter(f => f.mimeType === 'application/vnd.google-apps.folder');
     const songs = files.filter(f => f.mimeType !== 'application/vnd.google-apps.folder');
 
-
-
     // Format Bytes
     const formatSize = (bytes) => {
         if (bytes === 0) return '0 B';
@@ -53,8 +146,6 @@ const SongList = ({ title, files, currentSong, onPlay, onFolderClick, onFolderPl
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
     };
-
-
 
     return (
         <div className="w-full max-w-7xl mx-auto pb-32 pt-6 px-4 md:px-8">
@@ -144,61 +235,16 @@ const SongList = ({ title, files, currentSong, onPlay, onFolderClick, onFolderPl
                             const customCoverUrl = `${API_BASE}/api/folder/cover/${folder.id}?t=${cacheBuster}`;
 
                             return (
-                                <div
+                                <FolderCard
                                     key={folder.id}
-                                    onClick={() => onFolderClick(folder.id)}
-                                    className="group bg-[#181818] hover:bg-[#282828] transition-all duration-300 p-4 rounded-md cursor-pointer flex flex-col gap-4 shadow-lg hover:shadow-2xl relative"
-                                >
-                                    <div className="relative w-full aspect-square rounded-md shadow-lg flex items-center justify-center overflow-hidden bg-zinc-800">
-                                        <img
-                                            src={customCoverUrl}
-                                            onError={(e) => { e.target.onerror = null; e.target.src = defaultCover; }}
-                                            alt={folder.name}
-                                            className={`w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 ${uploading === folder.id ? 'opacity-50 blur-sm' : ''}`}
-                                        />
-
-                                        {/* Loading Spinner during Upload */}
-                                        {uploading === folder.id && (
-                                            <div className="absolute inset-0 flex items-center justify-center">
-                                                <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
-                                            </div>
-                                        )}
-
-                                        {/* Play & Edit Buttons Overlay */}
-                                        {/* Edit Button (Top-Left) */}
-                                        <label
-                                            onClick={(e) => e.stopPropagation()}
-                                            className="absolute left-2 top-2 opacity-0 group-hover:opacity-100 transition-all duration-300 z-10 bg-black/60 hover:bg-black/80 text-white rounded-full p-2.5 shadow-lg backdrop-blur-sm hover:scale-105 cursor-pointer"
-                                            title="Change Cover Image"
-                                        >
-                                            <FaPencilAlt size={14} />
-                                            <input
-                                                type="file"
-                                                accept="image/*"
-                                                className="hidden"
-                                                onChange={(e) => handleCoverUpload(folder.id, e.target.files[0])}
-                                            />
-                                        </label>
-
-                                        {/* Play Button (Bottom-Right) */}
-                                        <div className="absolute right-2 bottom-2 translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 shadow-xl z-10">
-                                            <div
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    onFolderPlay(folder.id);
-                                                }}
-                                                className="bg-green-500 rounded-full p-3 text-black shadow-lg hover:scale-105 transition-transform hover:bg-green-400"
-                                                title="Play Folder (Shuffle)"
-                                            >
-                                                <FaPlay size={20} className="pl-1" />
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="flex flex-col gap-1">
-                                        <h4 className="font-bold text-white truncate w-full pb-1" title={folder.name}>{folder.name}</h4>
-                                        <p className="text-sm text-zinc-400">Folder</p>
-                                    </div>
-                                </div>
+                                    folder={folder}
+                                    onFolderClick={onFolderClick}
+                                    onFolderPlay={onFolderPlay}
+                                    uploading={uploading}
+                                    customCoverUrl={customCoverUrl}
+                                    defaultCover={defaultCover}
+                                    handleCoverUpload={handleCoverUpload}
+                                />
                             );
                         })}
                     </div>
@@ -216,47 +262,17 @@ const SongList = ({ title, files, currentSong, onPlay, onFolderClick, onFolderPl
                     </div>
 
                     <div className="flex flex-col">
-                        {songs.map((file, index) => {
-                            const isCurrent = currentSong?.id === file.id;
-                            return (
-                                <div
-                                    key={file.id}
-                                    onClick={() => onPlay(file)}
-                                    className={`group grid grid-cols-[16px_1fr_100px] md:grid-cols-[40px_1fr_120px] items-center gap-4 px-4 py-2 rounded-md cursor-pointer transition-colors 
-                                        ${isCurrent ? 'bg-white/10' : 'hover:bg-white/5'}
-                                    `}
-                                >
-                                    {/* Play/Index Column */}
-                                    <div className="text-zinc-400 text-center text-sm font-mono flex justify-center items-center h-full">
-                                        {isCurrent ? (
-                                            <img src="https://open.spotifycdn.com/cdn/images/equaliser-animated-green.f93a2ef4.gif" className="h-4 w-4" alt="Playing" />
-                                        ) : (
-                                            <>
-                                                <span className="group-hover:hidden">{index + 1}</span>
-                                                <FaPlay size={10} className="hidden group-hover:block text-white ml-0.5" />
-                                            </>
-                                        )}
-                                    </div>
-
-                                    {/* Title Column */}
-                                    <div className="flex items-center gap-4 min-w-0">
-                                        {/* Optional: Add custom small thumbnail if available, otherwise just text */}
-                                        <div className="flex-1 min-w-0">
-                                            <h4 className={`truncate font-medium text-[15px] ${isCurrent ? 'text-green-500' : 'text-white'}`}>
-                                                {cleanTitle(file.name)}
-                                            </h4>
-                                            {/* Subtitle placeholder (Artist) - for now just hide or show name */}
-                                            {/* <span className="text-xs text-zinc-400 group-hover:text-white transition-colors">Unknown Artist</span> */}
-                                        </div>
-                                    </div>
-
-                                    {/* Size/Duration Column */}
-                                    <div className="text-sm text-zinc-400 text-right font-variant-numeric tabular-nums">
-                                        {formatSize(file.size)}
-                                    </div>
-                                </div>
-                            );
-                        })}
+                        {songs.map((file, index) => (
+                            <SongRow
+                                key={file.id}
+                                file={file}
+                                index={index}
+                                isCurrent={currentSong?.id === file.id}
+                                onPlay={onPlay}
+                                cleanTitle={cleanTitle}
+                                formatSize={formatSize}
+                            />
+                        ))}
                     </div>
                 </div>
             )}

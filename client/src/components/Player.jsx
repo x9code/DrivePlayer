@@ -27,9 +27,14 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
     const animationRef = useRef(null);
     const visualizerColorRef = useRef('34, 197, 94'); // Default Green
 
+    const [artError, setArtError] = useState(false);
+
     // Extract dominant color from album art
     useEffect(() => {
         if (!currentSong) return;
+
+        // Reset error state on new song
+        setArtError(false);
 
         const img = new Image();
         img.crossOrigin = "Anonymous";
@@ -216,7 +221,8 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
                 const AudioContext = window.AudioContext || window.webkitAudioContext;
                 audioContextRef.current = new AudioContext();
                 analyserRef.current = audioContextRef.current.createAnalyser();
-                analyserRef.current.fftSize = 1024; // High Res (512 bars)
+                analyserRef.current.fftSize = 2048; // Higher Res (1024 bins)
+                analyserRef.current.smoothingTimeConstant = 0.85; // Smoother falloff
 
                 // Connect source
                 if (!sourceRef.current) {
@@ -236,8 +242,16 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
         const bufferLength = analyserRef.current.frequencyBinCount;
         const dataArray = new Uint8Array(bufferLength);
 
+        // Resize Canvas to Window
+        const handleResize = () => {
+            canvas.width = window.innerWidth;
+            canvas.height = 300; // Fixed height
+        };
+        window.addEventListener('resize', handleResize);
+        handleResize(); // Init
+
         const draw = () => {
-            if (!isExpanded) return; // Stop drawing if closed
+            if (!isExpanded) return;
 
             animationRef.current = requestAnimationFrame(draw);
             analyserRef.current.getByteFrequencyData(dataArray);
@@ -247,37 +261,42 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
             const width = canvas.width;
             const height = canvas.height;
 
-            // Render only useful frequency range (cut off high-end silence 75%)
-            const usefulBars = Math.floor(bufferLength * 0.75);
-            const barWidth = width / usefulBars;
+            // Render params
+            const renderBars = 120; // Fixed number of bars for cleaner look
+            const barWidth = (width / renderBars);
+            const maxFreqIndex = Math.floor(bufferLength * 0.7); // Discard ultra-highs
 
-            let barHeight;
-            let x = 0;
-
-            // Gradient for bars (Flat with subtle fade)
+            // Gradient
             const gradient = ctx.createLinearGradient(0, 0, 0, height);
             const color = visualizerColorRef.current;
-
-            // Remove Glow Effect (Flat look)
-            ctx.shadowBlur = 0;
-            ctx.shadowColor = 'transparent';
-
-            gradient.addColorStop(0, `rgba(${color}, 0.6)`);   // Slightly transparent top
-            gradient.addColorStop(1, `rgba(${color}, 1.0)`);   // Solid base
-
+            gradient.addColorStop(0, `rgba(${color}, 0.8)`);
+            gradient.addColorStop(1, `rgba(${color}, 0.1)`);
             ctx.fillStyle = gradient;
 
-            // Draw bars
-            for (let i = 0; i < usefulBars; i++) {
-                barHeight = (dataArray[i] / 255) * (height * 0.8); // Max 80% height
+            for (let i = 0; i < renderBars; i++) {
+                // Quadratic Interpolation for Frequency Index
+                // This spreads low frequencies (bass) across more bars
+                const percent = i / renderBars;
+                const index = Math.floor(maxFreqIndex * Math.pow(percent, 2.5)); // 2.5 power curve
 
-                // Draw bar with 1px padding logic inside
-                // If barWidth is small (<2px), skip padding or use fractional
-                const drawWidth = Math.max(0.5, barWidth - (usefulBars < 400 ? 1 : 0.5));
+                // Average a few bins around the index for smoothness
+                // (Simple neighbor smoothing)
+                let value = dataArray[index] || 0;
+                if (index > 0 && index < maxFreqIndex - 1) {
+                    value = (dataArray[index - 1] + dataArray[index] + dataArray[index + 1]) / 3;
+                }
 
-                ctx.fillRect(x, height - barHeight, drawWidth, barHeight);
+                // Height scaling
+                const barHeight = (value / 255) * (height * 0.9);
 
-                x += barWidth;
+                if (barHeight > 0) {
+                    // Draw with slight padding
+                    const x = i * barWidth;
+                    const w = Math.max(1, barWidth - 2);
+
+                    // Rounded top roughly
+                    ctx.fillRect(x, height - barHeight, w, barHeight);
+                }
             }
         };
 
@@ -285,6 +304,7 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
 
         return () => {
             if (animationRef.current) cancelAnimationFrame(animationRef.current);
+            window.removeEventListener('resize', handleResize);
         };
     }, [isExpanded, currentSong]);
 
@@ -457,11 +477,13 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
             >
                 {/* Dynamic Glow Background */}
                 <div className="absolute inset-0 overflow-hidden pointer-events-none -z-10 transform-gpu">
-                    <img
-                        src={`${API_BASE}/api/thumbnail/${currentSong.id}`}
-                        alt=""
-                        className="w-full h-full object-cover blur-[100px] scale-150 opacity-40 will-change-transform"
-                    />
+                    {!artError && (
+                        <img
+                            src={`${API_BASE}/api/thumbnail/${currentSong.id}`}
+                            alt=""
+                            className="w-full h-full object-cover blur-[100px] scale-150 opacity-40 will-change-transform"
+                        />
+                    )}
                     <div className="absolute inset-0 bg-black/40"></div>
                 </div>
 
@@ -501,12 +523,20 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
                 {/* Content */}
                 <div className="relative z-10 flex flex-col items-center w-full max-w-md gap-6">
                     {/* Art */}
-                    <div className="w-64 h-64 lg:w-80 lg:h-80 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden relative">
-                        <img
-                            src={`${API_BASE}/api/thumbnail/${currentSong.id}`}
-                            alt="Art"
-                            className="w-full h-full object-cover"
-                        />
+                    <div className="w-64 h-64 lg:w-80 lg:h-80 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden relative bg-zinc-900 flex items-center justify-center">
+                        {!artError ? (
+                            <img
+                                src={`${API_BASE}/api/thumbnail/${currentSong.id}`}
+                                alt="Art"
+                                className="w-full h-full object-cover"
+                                onError={() => setArtError(true)}
+                            />
+                        ) : (
+                            <div className="flex flex-col items-center justify-center opacity-50">
+                                <FaVolumeUp size={64} className="mb-4" />
+                                <span className="text-sm tracking-widest uppercase">DrivePlayer</span>
+                            </div>
+                        )}
                     </div>
 
                     {/* Meta */}
