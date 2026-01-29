@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import axios from 'axios'
 import Player from './components/Player'
 import SongList from './components/SongList'
-import { FaGoogleDrive, FaSearch, FaTimes } from 'react-icons/fa'
+import { FaGoogleDrive, FaSearch, FaTimes, FaHeart, FaRegHeart } from 'react-icons/fa'
 
 // Environment variable for API URL (Production vs Dev)
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -14,6 +14,33 @@ function App() {
   const [currentSong, setCurrentSong] = useState(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentFolderId, setCurrentFolderId] = useState(null)
+
+  // Favorites State (Persisted in localStorage)
+  const [likedSongs, setLikedSongs] = useState(() => {
+    const saved = localStorage.getItem('driveplayer_favorites');
+    try {
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      console.error("Failed to parse favorites", e);
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem('driveplayer_favorites', JSON.stringify(likedSongs));
+  }, [likedSongs]);
+
+  const toggleLike = (song) => {
+    if (!song) return;
+    setLikedSongs(prev => {
+      const exists = prev.find(s => s.id === song.id);
+      if (exists) {
+        return prev.filter(s => s.id !== song.id);
+      } else {
+        return [...prev, song];
+      }
+    });
+  };
 
   const [searchQuery, setSearchQuery] = useState('')
   const [isSearching, setIsSearching] = useState(false)
@@ -143,6 +170,13 @@ function App() {
       return;
     }
 
+    // Special Case: Favorites
+    if (folderId === 'favorites') {
+      setFiles(likedSongs);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       const url = folderId
@@ -234,6 +268,8 @@ function App() {
         // Back to root
         setCurrentFolderId(null);
         fetchFiles(null);
+        // Ensure files are reset to root if we were in favorites without a real ID
+        if (!state) fetchFiles(null);
       }
     };
 
@@ -387,7 +423,21 @@ function App() {
           )}
         </div>
 
-        <div className="w-8"></div> {/* Spacer */}
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => {
+              setSearchQuery('');
+              setIsSearching(false);
+              setCurrentFolderId('favorites');
+              setFiles(likedSongs);
+              window.history.pushState({ folderId: 'favorites' }, '', '?folder=favorites');
+            }}
+            className={`flex items-center gap-2 px-4 py-2 rounded-full transition-colors ${currentFolderId === 'favorites' ? 'bg-primary text-black' : 'bg-white/5 hover:bg-white/10 text-white'}`}
+          >
+            <FaHeart className={currentFolderId === 'favorites' ? 'text-black' : 'text-primary'} />
+            <span className="hidden sm:inline font-medium">Favorites</span>
+          </button>
+        </div>
       </header>
 
       {/* Main Content */}
@@ -421,6 +471,8 @@ function App() {
         onShuffleToggle={() => setIsShuffle(!isShuffle)}
         onRepeatToggle={toggleRepeat}
         cleanTitle={cleanTitle}
+        likedSongs={likedSongs}
+        toggleLike={toggleLike}
       />
     </div>
   )

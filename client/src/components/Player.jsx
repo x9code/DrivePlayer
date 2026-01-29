@@ -1,10 +1,10 @@
-import React, { useRef, useEffect, useState } from 'react';
-import { FaPlay, FaPause, FaStepForward, FaStepBackward, FaVolumeUp, FaRandom, FaRedo, FaChevronDown, FaExpand, FaCompress } from 'react-icons/fa';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
+import { FaPlay, FaPause, FaStepForward, FaStepBackward, FaVolumeUp, FaRandom, FaRedo, FaChevronDown, FaExpand, FaCompress, FaHeart, FaRegHeart } from 'react-icons/fa';
 
 // Use environment variable for API URL in production (Vercel), fall back to relative path (proxy) in dev
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
-const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffle, repeatMode, onShuffleToggle, onRepeatToggle, cleanTitle }) => {
+const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffle, repeatMode, onShuffleToggle, onRepeatToggle, cleanTitle, likedSongs = [], toggleLike }) => {
     const audioRef = useRef(null);
     const prevVolumeRef = useRef(1);
     const [progress, setProgress] = React.useState(0);
@@ -13,6 +13,11 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
     const [isExpanded, setIsExpanded] = useState(false);
     const [isFullScreen, setIsFullScreen] = useState(false);
     const [meta, setMeta] = useState({ title: null, artist: null });
+
+    const isLiked = useMemo(() => {
+        if (!currentSong) return false;
+        return likedSongs.some(s => s.id === currentSong.id);
+    }, [currentSong, likedSongs]);
 
     // Visualizer Refs
     const canvasRef = useRef(null);
@@ -366,6 +371,13 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
                             {meta.artist || 'Google Drive'}
                         </p>
                     </div>
+                    {/* Moved Heart Button */}
+                    <button
+                        onClick={(e) => { e.stopPropagation(); toggleLike(currentSong); }}
+                        className={`ml-4 transition-colors ${isLiked ? 'text-green-500' : 'text-zinc-400 hover:text-white'}`}
+                    >
+                        {isLiked ? <FaHeart size={18} /> : <FaRegHeart size={18} />}
+                    </button>
                 </div>
 
                 {/* Center: Controls + Mini Progress */}
@@ -385,6 +397,8 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
                         >
                             {isPlaying ? <FaPause size={14} /> : <FaPlay size={14} className="ml-0.5" />}
                         </button>
+
+
 
                         <button onClick={(e) => { e.stopPropagation(); onNext(false); }} className="text-zinc-400 hover:text-white"><FaStepForward size={20} /></button>
                         <button
@@ -451,6 +465,7 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
                     <button onClick={handleCollapse} className="hover:text-white p-2">
                         <FaChevronDown size={24} />
                     </button>
+
                     <span className="text-xs font-bold tracking-widest uppercase">Now Playing</span>
                     <button
                         onClick={() => {
@@ -490,9 +505,17 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
 
                     {/* Meta */}
                     <div className="text-center w-full">
-                        <h3 className="font-bold text-white truncate text-2xl mb-1">
-                            {meta.title || (cleanTitle ? cleanTitle(currentSong.name) : currentSong.name)}
-                        </h3>
+                        <div className="flex items-center justify-center gap-4 mb-1">
+                            <h3 className="font-bold text-white truncate text-2xl">
+                                {meta.title || (cleanTitle ? cleanTitle(currentSong.name) : currentSong.name)}
+                            </h3>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); toggleLike(currentSong); }}
+                                className={`transition-colors transform active:scale-95 ${isLiked ? 'text-green-500' : 'text-zinc-600 hover:text-white'}`}
+                            >
+                                {isLiked ? <FaHeart size={22} /> : <FaRegHeart size={22} />}
+                            </button>
+                        </div>
                         <p className="text-zinc-400 truncate text-base">
                             {meta.artist || 'Google Drive'}
                         </p>
