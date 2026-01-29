@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { FaPlay, FaPause, FaStepForward, FaStepBackward, FaVolumeUp, FaRandom, FaRedo, FaChevronDown } from 'react-icons/fa';
+import { FaPlay, FaPause, FaStepForward, FaStepBackward, FaVolumeUp, FaRandom, FaRedo, FaChevronDown, FaExpand, FaCompress } from 'react-icons/fa';
 
 // Use environment variable for API URL in production (Vercel), fall back to relative path (proxy) in dev
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -11,6 +11,7 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
     const [duration, setDuration] = React.useState(0);
     const [volume, setVolume] = React.useState(1);
     const [isExpanded, setIsExpanded] = useState(false);
+    const [isFullScreen, setIsFullScreen] = useState(false);
     const [meta, setMeta] = useState({ title: null, artist: null });
 
     // Visualizer Refs
@@ -73,20 +74,17 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
 
             // ...
 
-            {/* Song Meta */ }
-            <div className={`${isExpanded ? 'text-center w-full' : 'w-1/3 ml-4 mr-auto overflow-hidden'}`}>
-                <h3 className={`font-bold text-white truncate ${isExpanded ? 'text-3xl mb-2' : 'text-base'}`}>
-                    {meta.title || (cleanTitle ? cleanTitle(currentSong.name) : currentSong.name)}
-                </h3>
-                <p className={`text-zinc-400 truncate ${isExpanded ? 'text-lg' : 'text-sm'}`}>
-                    {meta.artist || 'Google Drive'}
-                </p>
-            </div>
             if (isPlaying) {
                 audioRef.current.play().catch(e => console.error("Playback failed", e));
             } else {
                 audioRef.current.pause();
             }
+
+            // Sync Full Screen State
+            const handleFS = () => setIsFullScreen(!!document.fullscreenElement);
+            document.addEventListener('fullscreenchange', handleFS);
+            return () => document.removeEventListener('fullscreenchange', handleFS);
+
 
             // MediaSession API for Background Playback & Lock Screen Controls
             if ('mediaSession' in navigator) {
@@ -186,6 +184,13 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
                     break;
                 case 'KeyP':
                     onPrev();
+                    break;
+                case 'KeyF':
+                    if (!document.fullscreenElement) {
+                        document.documentElement.requestFullscreen().catch(e => console.log(e));
+                    } else {
+                        if (document.exitFullscreen) document.exitFullscreen();
+                    }
                     break;
                 default:
                     break;
@@ -447,7 +452,19 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
                         <FaChevronDown size={24} />
                     </button>
                     <span className="text-xs font-bold tracking-widest uppercase">Now Playing</span>
-                    <div className="w-8"></div>
+                    <button
+                        onClick={() => {
+                            if (!isFullScreen) {
+                                document.documentElement.requestFullscreen().catch(e => console.log(e));
+                            } else {
+                                if (document.exitFullscreen) document.exitFullscreen();
+                            }
+                        }}
+                        className="hover:text-white p-2"
+                        title="Full Screen (F)"
+                    >
+                        {isFullScreen ? <FaCompress size={20} /> : <FaExpand size={20} />}
+                    </button>
 
                 </div>
 
