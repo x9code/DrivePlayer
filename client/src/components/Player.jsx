@@ -6,6 +6,7 @@ const API_BASE = import.meta.env.VITE_API_URL || '';
 
 const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffle, repeatMode, onShuffleToggle, onRepeatToggle, cleanTitle }) => {
     const audioRef = useRef(null);
+    const prevVolumeRef = useRef(1);
     const [progress, setProgress] = React.useState(0);
     const [duration, setDuration] = React.useState(0);
     const [volume, setVolume] = React.useState(1);
@@ -82,6 +83,75 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
             }
         }
     }, [currentSong, isPlaying, meta, onNext, onPrev, setIsPlaying]);
+
+    // Keyboard Shortcuts
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (!currentSong || !audioRef.current) return;
+
+            // Ignore if typing in an input
+            if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+
+            switch (e.code) {
+                case 'Space':
+                    e.preventDefault();
+                    setIsPlaying(prev => !prev);
+                    break;
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    if (e.ctrlKey) {
+                        onPrev();
+                    } else {
+                        audioRef.current.currentTime = Math.max(0, audioRef.current.currentTime - 5);
+                        setProgress(audioRef.current.currentTime);
+                    }
+                    break;
+                case 'ArrowRight':
+                    e.preventDefault();
+                    if (e.ctrlKey) {
+                        onNext(false);
+                    } else {
+                        audioRef.current.currentTime = Math.min(audioRef.current.duration || 0, audioRef.current.currentTime + 5);
+                        setProgress(audioRef.current.currentTime);
+                    }
+                    break;
+                case 'ArrowUp':
+                    e.preventDefault();
+                    setVolume(prev => {
+                        const newVol = Math.min(1, parseFloat((prev + 0.1).toFixed(2)));
+                        audioRef.current.volume = newVol;
+                        return newVol;
+                    });
+                    break;
+                case 'ArrowDown':
+                    e.preventDefault();
+                    setVolume(prev => {
+                        const newVol = Math.max(0, parseFloat((prev - 0.1).toFixed(2)));
+                        audioRef.current.volume = newVol;
+                        return newVol;
+                    });
+                    break;
+                case 'KeyM':
+                    setVolume(prev => {
+                        if (prev > 0) {
+                            prevVolumeRef.current = prev;
+                            audioRef.current.volume = 0;
+                            return 0;
+                        } else {
+                            const restored = prevVolumeRef.current || 1;
+                            audioRef.current.volume = restored;
+                            return restored;
+                        }
+                    });
+                    break;
+                default:
+                    break;
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [currentSong, setIsPlaying, onNext, onPrev]);
 
     const handleTimeUpdate = () => {
         const current = audioRef.current.currentTime;
