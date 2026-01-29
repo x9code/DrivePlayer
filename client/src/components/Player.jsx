@@ -206,7 +206,7 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
                 const AudioContext = window.AudioContext || window.webkitAudioContext;
                 audioContextRef.current = new AudioContext();
                 analyserRef.current = audioContextRef.current.createAnalyser();
-                analyserRef.current.fftSize = 256; // Controls bar count (128 bars)
+                analyserRef.current.fftSize = 1024; // High Res (512 bars)
 
                 // Connect source
                 if (!sourceRef.current) {
@@ -236,7 +236,11 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
 
             const width = canvas.width;
             const height = canvas.height;
-            const barWidth = (width / bufferLength) * 2.5;
+
+            // Render only useful frequency range (cut off high-end silence 75%)
+            const usefulBars = Math.floor(bufferLength * 0.75);
+            const barWidth = width / usefulBars;
+
             let barHeight;
             let x = 0;
 
@@ -248,14 +252,17 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
 
             ctx.fillStyle = gradient;
 
-            // Draw bars (mirrored or standard? Let's do bottom-aligned for now, simpler)
-            for (let i = 0; i < bufferLength; i++) {
+            // Draw bars
+            for (let i = 0; i < usefulBars; i++) {
                 barHeight = (dataArray[i] / 255) * (height * 0.8); // Max 80% height
 
-                // Rounded tops
-                ctx.fillRect(x, height - barHeight, barWidth, barHeight);
+                // Draw bar with 1px padding logic inside
+                // If barWidth is small (<2px), skip padding or use fractional
+                const drawWidth = Math.max(0.5, barWidth - (usefulBars < 400 ? 1 : 0.5));
 
-                x += barWidth + 1;
+                ctx.fillRect(x, height - barHeight, drawWidth, barHeight);
+
+                x += barWidth;
             }
         };
 
