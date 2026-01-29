@@ -310,6 +310,15 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
             <div
                 className={`absolute inset-0 flex flex-col items-center justify-center p-8 transition-opacity duration-300 delay-100 ${isExpanded ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
             >
+                {/* Dynamic Glow Background */}
+                <div className="absolute inset-0 overflow-hidden pointer-events-none -z-10 transform-gpu">
+                    <img
+                        src={`${API_BASE}/api/thumbnail/${currentSong.id}`}
+                        alt=""
+                        className="w-full h-full object-cover blur-[100px] scale-150 opacity-40 will-change-transform"
+                    />
+                    <div className="absolute inset-0 bg-black/40"></div>
+                </div>
                 {/* Header */}
                 <div className="absolute top-6 left-6 right-6 flex justify-between items-center text-zinc-400">
                     <button onClick={handleCollapse} className="hover:text-white p-2">
