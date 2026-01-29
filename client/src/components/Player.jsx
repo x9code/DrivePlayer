@@ -4,7 +4,7 @@ import { FaPlay, FaPause, FaStepForward, FaStepBackward, FaVolumeUp, FaRandom, F
 // Use environment variable for API URL in production (Vercel), fall back to relative path (proxy) in dev
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
-const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffle, repeatMode, onShuffleToggle, onRepeatToggle, cleanTitle, likedSongs = [], toggleLike }) => {
+const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffle, repeatMode, onShuffleToggle, onRepeatToggle, cleanTitle, likedSongs = [], toggleLike, themeColor }) => {
     const audioRef = useRef(null);
     const prevVolumeRef = useRef(1);
     const [progress, setProgress] = React.useState(0);
@@ -25,40 +25,12 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
     const analyserRef = useRef(null);
     const sourceRef = useRef(null);
     const animationRef = useRef(null);
-    const visualizerColorRef = useRef('34, 197, 94'); // Default Green
 
     const [artError, setArtError] = useState(false);
 
-    // Extract dominant color from album art
+    // Reset error state on new song
     useEffect(() => {
-        if (!currentSong) return;
-
-        // Reset error state on new song
-        setArtError(false);
-
-        const img = new Image();
-        img.crossOrigin = "Anonymous";
-        img.src = `${API_BASE}/api/thumbnail/${currentSong.id}`;
-
-        img.onload = () => {
-            try {
-                const canvas = document.createElement('canvas');
-                canvas.width = 1;
-                canvas.height = 1;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, 1, 1);
-                const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
-                visualizerColorRef.current = `${r}, ${g}, ${b}`;
-            } catch (e) {
-                // Console warn suppressed to avoid noise
-                visualizerColorRef.current = '34, 197, 94';
-            }
-        };
-
-        img.onerror = () => {
-            visualizerColorRef.current = '34, 197, 94';
-        };
-
+        if (currentSong) setArtError(false);
     }, [currentSong]);
 
     useEffect(() => {
@@ -268,7 +240,7 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
 
             // Gradient
             const gradient = ctx.createLinearGradient(0, 0, 0, height);
-            const color = visualizerColorRef.current;
+            const color = themeColor || '29, 185, 84';
             gradient.addColorStop(0, `rgba(${color}, 0.8)`);
             gradient.addColorStop(1, `rgba(${color}, 0.1)`);
             ctx.fillStyle = gradient;
@@ -306,7 +278,7 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
             if (animationRef.current) cancelAnimationFrame(animationRef.current);
             window.removeEventListener('resize', handleResize);
         };
-    }, [isExpanded, currentSong]);
+    }, [isExpanded, currentSong, themeColor]);
 
     // Resume AudioContext if suspended (browser policy)
     useEffect(() => {
@@ -399,7 +371,7 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
                     {/* Moved Heart Button */}
                     <button
                         onClick={(e) => { e.stopPropagation(); toggleLike(currentSong); }}
-                        className={`ml-4 transition-colors ${isLiked ? 'text-green-500' : 'text-zinc-400 hover:text-white'}`}
+                        className={`ml-4 transition-colors ${isLiked ? 'text-primary' : 'text-zinc-400 hover:text-white'}`}
                     >
                         {isLiked ? <FaHeart size={18} /> : <FaRegHeart size={18} />}
                     </button>
@@ -410,7 +382,7 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
                     <div className="flex items-center gap-4 md:gap-6">
                         <button
                             onClick={(e) => { e.stopPropagation(); onShuffleToggle(); }}
-                            className={`hidden md:flex transition-colors ${isShuffle ? 'text-green-500' : 'text-zinc-400 hover:text-white'}`}
+                            className={`hidden md:flex transition-colors ${isShuffle ? 'text-primary' : 'text-zinc-400 hover:text-white'}`}
                         >
                             <FaRandom size={16} />
                         </button>
@@ -428,7 +400,7 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
                         <button onClick={(e) => { e.stopPropagation(); onNext(false); }} className="text-zinc-400 hover:text-white"><FaStepForward size={20} /></button>
                         <button
                             onClick={(e) => { e.stopPropagation(); onRepeatToggle(); }}
-                            className={`hidden md:flex transition-colors ${repeatMode > 0 ? 'text-green-500' : 'text-zinc-400 hover:text-white'}`}
+                            className={`hidden md:flex transition-colors ${repeatMode > 0 ? 'text-primary' : 'text-zinc-400 hover:text-white'}`}
                         >
                             <FaRedo size={16} />
                         </button>
@@ -447,7 +419,7 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
                                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                             />
                             <div
-                                className="h-full bg-white rounded-lg relative group-hover:bg-green-500 transition-colors"
+                                className="h-full bg-white rounded-lg relative group-hover:bg-primary transition-colors"
                                 style={{ width: `${duration ? (progress / duration) * 100 : 0}%` }}
                             ></div>
                         </div>
@@ -465,7 +437,7 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
                         step="0.01"
                         value={volume}
                         onChange={handleVolume}
-                        className="w-16 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer hover:bg-green-500"
+                        className="w-16 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer hover:bg-primary"
                     />
                 </div>
             </div>
@@ -547,7 +519,7 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
                             </h3>
                             <button
                                 onClick={(e) => { e.stopPropagation(); toggleLike(currentSong); }}
-                                className={`transition-colors transform active:scale-95 ${isLiked ? 'text-green-500' : 'text-zinc-600 hover:text-white'}`}
+                                className={`transition-colors transform active:scale-95 ${isLiked ? 'text-primary' : 'text-zinc-600 hover:text-white'}`}
                             >
                                 {isLiked ? <FaHeart size={22} /> : <FaRegHeart size={22} />}
                             </button>
@@ -569,7 +541,7 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
                                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                             />
                             <div
-                                className="h-full bg-green-500 rounded-lg relative"
+                                className="h-full bg-primary rounded-lg relative"
                                 style={{ width: `${duration ? (progress / duration) * 100 : 0}%` }}
                             >
                                 <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-md"></div>
@@ -585,10 +557,10 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
                     <div className="flex items-center gap-6 justify-center w-full">
                         <button
                             onClick={(e) => { e.stopPropagation(); onShuffleToggle(); }}
-                            className={`group relative transition-colors ${isShuffle ? 'text-green-500' : 'text-zinc-400 hover:text-white'}`}
+                            className={`group relative transition-colors ${isShuffle ? 'text-primary' : 'text-zinc-400 hover:text-white'}`}
                         >
                             <FaRandom size={18} />
-                            {isShuffle && <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-1 h-1 bg-green-500 rounded-full"></div>}
+                            {isShuffle && <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-1 h-1 bg-primary rounded-full"></div>}
                             <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-zinc-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
                                 Shuffle
                             </span>
@@ -626,11 +598,11 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
 
                         <button
                             onClick={(e) => { e.stopPropagation(); onRepeatToggle(); }}
-                            className={`group relative transition-colors ${repeatMode > 0 ? 'text-green-500' : 'text-zinc-400 hover:text-white'}`}
+                            className={`group relative transition-colors ${repeatMode > 0 ? 'text-primary' : 'text-zinc-400 hover:text-white'}`}
                         >
                             <FaRedo size={18} />
-                            {repeatMode === 2 && <span className="absolute -top-1.5 -right-1.5 text-[10px] font-bold bg-zinc-800 text-green-500 px-1 rounded-full">1</span>}
-                            {repeatMode > 0 && <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-1 h-1 bg-green-500 rounded-full"></div>}
+                            {repeatMode === 2 && <span className="absolute -top-1.5 -right-1.5 text-[10px] font-bold bg-zinc-800 text-primary px-1 rounded-full">1</span>}
+                            {repeatMode > 0 && <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-1 h-1 bg-primary rounded-full"></div>}
                             <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-zinc-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
                                 {repeatMode === 0 ? 'Repeat Off' : repeatMode === 1 ? 'Repeat All' : 'Repeat One'}
                             </span>

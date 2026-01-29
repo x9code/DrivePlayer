@@ -36,6 +36,74 @@ function App() {
     localStorage.setItem('driveplayer_favorites', JSON.stringify(likedSongs));
   }, [likedSongs]);
 
+  // Theme State
+  const [themeColor, setThemeColor] = useState('29, 185, 84'); // Default Spotify Green
+
+  useEffect(() => {
+    // Apply theme to CSS variable
+    document.documentElement.style.setProperty('--theme-color', themeColor);
+  }, [themeColor]);
+
+  // Extract Vibrant Color from Album Art
+  useEffect(() => {
+    if (!currentSong) {
+      setThemeColor('29, 185, 84');
+      return;
+    }
+
+    const img = new Image();
+    img.crossOrigin = "Anonymous";
+    img.src = `${API_BASE}/api/thumbnail/${currentSong.id}`;
+
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        // Resize to small manageable size
+        canvas.width = 50;
+        canvas.height = 50;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, 50, 50);
+
+        const imageData = ctx.getImageData(0, 0, 50, 50).data;
+        let maxSaturation = -1;
+        let bestColor = '29, 185, 84';
+
+        // Sample every 4th pixel for speed
+        for (let i = 0; i < imageData.length; i += 16) {
+          const r = imageData[i];
+          const g = imageData[i + 1];
+          const b = imageData[i + 2];
+
+          // Calculate Saturation (HSL)
+          const max = Math.max(r, g, b);
+          const min = Math.min(r, g, b);
+          const delta = max - min;
+          const saturation = max === 0 ? 0 : delta / max;
+
+          // Prefer bright, saturated colors. Ignore nearly black/white.
+          if (saturation > maxSaturation && max > 50 && max < 240) {
+            maxSaturation = saturation;
+            bestColor = `${r}, ${g}, ${b}`;
+          }
+        }
+
+        // Fallback to average if no vibrant color found
+        if (maxSaturation < 0.1) {
+          // ... (Keep existing simple average or just default)
+        }
+
+        setThemeColor(bestColor);
+      } catch (e) {
+        console.error("Theme Extraction Failed:", e);
+        setThemeColor('29, 185, 84');
+      }
+    };
+
+    img.onerror = () => {
+      setThemeColor('29, 185, 84');
+    };
+  }, [currentSong]);
+
   const toggleLike = (song) => {
     if (!song) return;
     setLikedSongs(prev => {
@@ -596,6 +664,7 @@ function App() {
         cleanTitle={cleanTitle}
         likedSongs={likedSongs}
         toggleLike={toggleLike}
+        themeColor={themeColor}
       />
 
       {/* Lock Screen Overlay - Always rendered for animation */}

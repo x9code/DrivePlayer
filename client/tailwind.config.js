@@ -7,7 +7,7 @@ export default {
     theme: {
         extend: {
             colors: {
-                primary: '#1DB954', // Spotify Green-ish
+                primary: ({ opacityValue }) => opacityValue ? `rgba(var(--theme-color), ${opacityValue})` : `rgb(var(--theme-color))`,
                 dark: '#121212',
                 darker: '#000000',
                 light: '#B3B3B3',

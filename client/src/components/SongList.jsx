@@ -47,7 +47,7 @@ const FolderCard = React.memo(({ folder, onFolderClick, onFolderPlay, uploading,
                             e.stopPropagation();
                             onFolderPlay(folder.id);
                         }}
-                        className="bg-green-500 rounded-full p-3 text-black shadow-lg hover:scale-105 transition-transform hover:bg-green-400"
+                        className="bg-primary rounded-full p-3 text-black shadow-lg hover:scale-105 transition-transform hover:bg-primary/80"
                         title="Play Folder (Shuffle)"
                     >
                         <FaPlay size={20} className="pl-1" />
@@ -67,7 +67,7 @@ const SongRow = React.memo(({ file, index, isCurrent, onPlay, cleanTitle, format
         <div
             onClick={() => onPlay(file)}
             className={`group grid grid-cols-[16px_1fr_100px] md:grid-cols-[40px_1fr_120px] items-center gap-4 px-4 py-2 rounded-md cursor-pointer transition-colors 
-                ${isCurrent ? 'bg-white/10' : 'hover:bg-white/5'}
+                ${isCurrent ? 'bg-white/10 text-primary' : 'hover:bg-white/5'}
             `}
         >
             {/* Play/Index Column */}
@@ -85,7 +85,7 @@ const SongRow = React.memo(({ file, index, isCurrent, onPlay, cleanTitle, format
             {/* Title Column */}
             <div className="flex items-center gap-4 min-w-0">
                 <div className="flex-1 min-w-0">
-                    <h4 className={`truncate font-medium text-[15px] ${isCurrent ? 'text-green-500' : 'text-white'}`}>
+                    <h4 className={`truncate font-medium text-[15px] ${isCurrent ? 'text-primary' : 'text-white'}`}>
                         {cleanTitle(file.name)}
                     </h4>
                 </div>
@@ -188,7 +188,7 @@ const SongList = ({ title, files, currentSong, onPlay, onFolderClick, onFolderPl
                                                     setShowSortMenu(false);
                                                 }}
                                                 className={`w-full text-left px-4 py-3 text-sm flex items-center justify-between hover:bg-white/10 transition-colors
-                                                    ${sortOption === opt ? 'text-green-500' : 'text-white'}
+                                                    ${sortOption === opt ? 'text-primary' : 'text-white'}
                                                 `}
                                             >
                                                 <span className="capitalize">{opt}</span>
@@ -210,7 +210,7 @@ const SongList = ({ title, files, currentSong, onPlay, onFolderClick, onFolderPl
                         {/* Shuffle Button */}
                         <button
                             onClick={onShufflePlay}
-                            className="bg-green-500 hover:bg-green-400 text-black font-bold rounded-full p-4 transition-transform hover:scale-105 shadow-xl flex items-center justify-center"
+                            className="bg-primary hover:bg-primary/80 text-black font-bold rounded-full p-4 transition-transform hover:scale-105 shadow-xl flex items-center justify-center"
                             title="Shuffle Play"
                         >
                             <FaPlay className="pl-1" size={20} />
@@ -279,7 +279,7 @@ const SongList = ({ title, files, currentSong, onPlay, onFolderClick, onFolderPl
 
             {loading && (
                 <div className="text-center py-20 text-zinc-500 flex flex-col items-center gap-4">
-                    <div className="w-10 h-10 border-2 border-zinc-600 border-t-green-500 rounded-full animate-spin"></div>
+                    <div className="w-10 h-10 border-2 border-zinc-600 border-t-primary rounded-full animate-spin"></div>
                 </div>
             )}
 
