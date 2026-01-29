@@ -441,7 +441,17 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
                     </button>
                     <span className="text-xs font-bold tracking-widest uppercase">Now Playing</span>
                     <div className="w-8"></div>
+
                 </div>
+
+                {/* Audio Visualizer Canvas (Bottom Screen) */}
+                <canvas
+                    ref={canvasRef}
+                    width={1000}
+                    height={300}
+                    className="absolute bottom-0 left-0 w-full h-64 opacity-60 pointer-events-none z-0"
+                    style={{ maskImage: 'linear-gradient(to top, black, transparent)' }}
+                />
 
                 {/* Content */}
                 <div className="flex flex-col items-center w-full max-w-md gap-6">
@@ -466,15 +476,6 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
 
                     {/* Progress */}
                     <div className="w-full flex flex-col gap-2 relative">
-                        {/* Audio Visualizer Canvas */}
-                        <canvas
-                            ref={canvasRef}
-                            width={600}
-                            height={100}
-                            className="absolute bottom-6 left-0 w-full h-24 opacity-80 pointer-events-none z-0"
-                            style={{ maskImage: 'linear-gradient(to top, black, transparent)' }}
-                        />
-
                         <div className="w-full h-1 bg-gray-600 rounded-lg cursor-pointer group relative z-10">
                             <input
                                 type="range"
