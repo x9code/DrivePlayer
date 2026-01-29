@@ -21,7 +21,48 @@ function App() {
   const [isShuffle, setIsShuffle] = useState(false);
   const [repeatMode, setRepeatMode] = useState(0); // 0: Off, 1: All, 2: One
 
+  // Sorting State
+  const [sortOption, setSortOption] = useState('name'); // 'name', 'date', 'size'
+  const [sortDirection, setSortDirection] = useState('asc'); // 'asc', 'desc'
+
   const searchTimeout = useRef(null);
+
+  // Sorting Logic
+  const getSortedFiles = useCallback(() => {
+    // 1. Separate folders and files
+    const folders = files.filter(f => f.mimeType === 'application/vnd.google-apps.folder');
+    let songs = files.filter(f => f.mimeType !== 'application/vnd.google-apps.folder');
+
+    // 2. Sort Songs
+    songs.sort((a, b) => {
+      let valA, valB;
+
+      switch (sortOption) {
+        case 'date':
+          valA = new Date(a.createdTime || 0).getTime();
+          valB = new Date(b.createdTime || 0).getTime();
+          break;
+        case 'size':
+          valA = parseInt(a.size || 0);
+          valB = parseInt(b.size || 0);
+          break;
+        case 'name':
+        default:
+          valA = a.name.toLowerCase();
+          valB = b.name.toLowerCase();
+      }
+
+      if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+      if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    // 3. Return combined (Folders always first, sorted by name usually, but for now we keep folders as is or sort them too? 
+    // Let's keep folders top, songs sorted)
+    return [...folders, ...songs];
+  }, [files, sortOption, sortDirection]);
+
+  const sortedFiles = getSortedFiles();
 
   // Fetch files (songs + folders)
   const fetchFiles = async (folderId = null) => {
@@ -152,7 +193,7 @@ function App() {
 
   const handleNext = (auto = false) => {
     if (!currentSong) return;
-    const songList = files.filter(f => f.mimeType !== 'application/vnd.google-apps.folder');
+    const songList = sortedFiles.filter(f => f.mimeType !== 'application/vnd.google-apps.folder');
     if (songList.length === 0) return;
 
     // Repeat One logic: Only if auto-advanced (song ended)
@@ -190,7 +231,7 @@ function App() {
 
   const handlePrev = () => {
     if (!currentSong) return;
-    const songList = files.filter(f => f.mimeType !== 'application/vnd.google-apps.folder');
+    const songList = sortedFiles.filter(f => f.mimeType !== 'application/vnd.google-apps.folder');
     if (songList.length === 0) return;
 
     // In shuffle mode, prev could be random or history. Using logic relative to list for simplicity or repeat current.
@@ -210,7 +251,7 @@ function App() {
   };
 
   const handleShufflePlay = () => {
-    const songList = files.filter(f => f.mimeType !== 'application/vnd.google-apps.folder');
+    const songList = sortedFiles.filter(f => f.mimeType !== 'application/vnd.google-apps.folder');
     if (songList.length === 0) return;
 
     const randomIndex = Math.floor(Math.random() * songList.length);
@@ -221,6 +262,16 @@ function App() {
 
   const toggleRepeat = () => {
     setRepeatMode((prev) => (prev + 1) % 3);
+  };
+
+  const handleSortChange = (option) => {
+    if (sortOption === option) {
+      // Toggle direction
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortOption(option);
+      setSortDirection('asc'); // Default to asc for new option
+    }
   };
 
   return (
@@ -261,7 +312,7 @@ function App() {
       <main className="pt-16 h-screen overflow-y-auto custom-scrollbar">
         <div className="bg-gradient-to-b from-primary/20 via-black to-black h-80 absolute w-full top-0 left-0 -z-10 opacity-50" />
         <SongList
-          files={files}
+          files={sortedFiles}
           loading={loading}
           currentSong={currentSong}
           onPlay={handlePlay}
@@ -269,6 +320,9 @@ function App() {
           onBack={handleBack}
           canGoBack={!!currentFolderId || isSearching}
           onShufflePlay={handleShufflePlay}
+          sortOption={sortOption}
+          sortDirection={sortDirection}
+          onSortChange={handleSortChange}
         />
       </main>
 

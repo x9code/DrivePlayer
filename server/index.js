@@ -81,7 +81,7 @@ app.get('/api/files', async (req, res) => {
 
         const filesRes = await driveClient.files.list({
             q: `'${targetFolderId}' in parents and (mimeType = 'application/vnd.google-apps.folder' or mimeType contains 'audio/' or fileExtension = 'mp3' or fileExtension = 'm4a' or fileExtension = 'opus' or fileExtension = 'flac')`,
-            fields: 'files(id, name, mimeType, size, thumbnailLink)',
+            fields: 'files(id, name, mimeType, size, thumbnailLink, createdTime)',
             orderBy: 'folder, name'
         });
 
@@ -92,7 +92,8 @@ app.get('/api/files', async (req, res) => {
                     metadataCache.set(file.id, {
                         size: file.size,
                         mimeType: file.mimeType,
-                        name: file.name
+                        name: file.name,
+                        createdTime: file.createdTime
                     });
                 }
             });
@@ -117,7 +118,7 @@ app.get('/api/search', async (req, res) => {
         console.log(`Searching for: ${query}`);
         const filesRes = await driveClient.files.list({
             q: `name contains '${query}' and (mimeType = 'application/vnd.google-apps.folder' or mimeType contains 'audio/' or fileExtension = 'mp3' or fileExtension = 'm4a' or fileExtension = 'opus' or fileExtension = 'flac') and trashed = false`,
-            fields: 'files(id, name, mimeType, size, thumbnailLink)',
+            fields: 'files(id, name, mimeType, size, thumbnailLink, createdTime)',
             pageSize: 50
         });
 

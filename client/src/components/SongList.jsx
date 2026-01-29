@@ -1,7 +1,9 @@
-import React from 'react';
-import { FaPlay, FaFolder, FaArrowLeft, FaClock } from 'react-icons/fa';
+import React, { useState } from 'react';
+import { FaPlay, FaFolder, FaArrowLeft, FaClock, FaSortAmountDown, FaSortAmountUp, FaFilter } from 'react-icons/fa';
 
-const SongList = ({ files, currentSong, onPlay, onFolderClick, loading, onBack, canGoBack, onShufflePlay }) => {
+const SongList = ({ files, currentSong, onPlay, onFolderClick, loading, onBack, canGoBack, onShufflePlay, sortOption, sortDirection, onSortChange }) => {
+
+    const [showSortMenu, setShowSortMenu] = useState(false);
 
     // Separate content
     const folders = files.filter(f => f.mimeType === 'application/vnd.google-apps.folder');
@@ -22,18 +24,13 @@ const SongList = ({ files, currentSong, onPlay, onFolderClick, loading, onBack, 
         name = name.replace(/^\d+[\.\-\s]+/, "");    // Remove initial numbering "01. "
 
         // Remove "Artist - " prefix if present (simple heuristic: looks for " - " separator)
-        // We assume the first part is artist if there's a file structure "Artist - Title"
-        // But we must be careful not to break "Title - Remix" if there's no artist. 
-        // Usually filenames are "Artist - Title".
         const parts = name.split(' - ');
         if (parts.length > 1) {
-            // Return everything after the first " - " to handle "Artist - Title - Remix" correctly as "Title - Remix"
             return parts.slice(1).join(' - ');
         }
 
         return name;
     };
-
 
     return (
         <div className="w-full max-w-7xl mx-auto pb-32 pt-6 px-4 md:px-8">
@@ -48,14 +45,62 @@ const SongList = ({ files, currentSong, onPlay, onFolderClick, loading, onBack, 
                     )}
                     <h2 className="text-3xl font-bold tracking-tight">Library</h2>
                 </div>
+
                 {songs.length > 0 && (
-                    <button
-                        onClick={onShufflePlay}
-                        className="bg-green-500 hover:bg-green-400 text-black font-bold rounded-full p-4 transition-transform hover:scale-105 shadow-xl flex items-center justify-center"
-                        title="Shuffle Play"
-                    >
-                        <FaPlay className="pl-1" size={20} />
-                    </button>
+                    <div className="flex items-center gap-2">
+                        {/* Sort Button */}
+                        <div className="relative">
+                            <button
+                                onClick={() => setShowSortMenu(!showSortMenu)}
+                                className="bg-white/10 hover:bg-white/20 text-white font-medium rounded-full px-4 py-2 transition-colors flex items-center gap-2"
+                                title="Sort Songs"
+                            >
+                                <FaFilter size={14} />
+                                <span className="text-sm hidden sm:inline">Sort</span>
+                            </button>
+
+                            {/* Dropdown */}
+                            {showSortMenu && (
+                                <div className="absolute right-0 top-full mt-2 w-48 bg-[#282828] rounded-md shadow-2xl z-50 border border-white/5 overflow-hidden">
+                                    <div className="py-1">
+                                        <p className="px-4 py-2 text-xs font-semibold text-zinc-400 uppercase tracking-wider">Sort By</p>
+
+                                        {['name', 'date', 'size'].map(opt => (
+                                            <button
+                                                key={opt}
+                                                onClick={() => {
+                                                    onSortChange(opt);
+                                                    setShowSortMenu(false);
+                                                }}
+                                                className={`w-full text-left px-4 py-3 text-sm flex items-center justify-between hover:bg-white/10 transition-colors
+                                                    ${sortOption === opt ? 'text-green-500' : 'text-white'}
+                                                `}
+                                            >
+                                                <span className="capitalize">{opt}</span>
+                                                {sortOption === opt && (
+                                                    sortDirection === 'asc' ? <FaSortAmountUp size={12} /> : <FaSortAmountDown size={12} />
+                                                )}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Backdrop for closing menu */}
+                            {showSortMenu && (
+                                <div className="fixed inset-0 z-40" onClick={() => setShowSortMenu(false)}></div>
+                            )}
+                        </div>
+
+                        {/* Shuffle Button */}
+                        <button
+                            onClick={onShufflePlay}
+                            className="bg-green-500 hover:bg-green-400 text-black font-bold rounded-full p-4 transition-transform hover:scale-105 shadow-xl flex items-center justify-center"
+                            title="Shuffle Play"
+                        >
+                            <FaPlay className="pl-1" size={20} />
+                        </button>
+                    </div>
                 )}
             </header>
 
