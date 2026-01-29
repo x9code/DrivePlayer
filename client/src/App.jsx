@@ -26,6 +26,7 @@ function App() {
   const [sortDirection, setSortDirection] = useState('asc'); // 'asc', 'desc'
 
   const searchTimeout = useRef(null);
+  const fileCache = useRef({}); // Cache for folder contents
 
   // Sorting Logic
   const getSortedFiles = useCallback(() => {
@@ -132,6 +133,16 @@ function App() {
 
   // Fetch files (songs + folders)
   const fetchFiles = async (folderId = null) => {
+    const cacheKey = folderId || 'root';
+
+    // 1. Check Cache
+    if (fileCache.current[cacheKey]) {
+      // console.log("Cache hit for", cacheKey);
+      setFiles(fileCache.current[cacheKey]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       const url = folderId
@@ -141,9 +152,14 @@ function App() {
       const res = await axios.get(url);
       setFiles(res.data.files);
 
+      // 2. Update Cache
+      fileCache.current[cacheKey] = res.data.files;
+
       // Update current folder id if not set (initial load)
       if (!folderId && res.data.folderId) {
         setCurrentFolderId(res.data.folderId);
+        // Also cache under the actual ID for future reference
+        fileCache.current[res.data.folderId] = res.data.files;
       }
     } catch (error) {
       console.error("Error fetching files:", error);
@@ -375,7 +391,7 @@ function App() {
       </header>
 
       {/* Main Content */}
-      <main className="pt-16 h-screen overflow-y-auto custom-scrollbar">
+      <main className="mt-16 h-[calc(100vh-4rem)] overflow-y-auto custom-scrollbar">
         <div className="bg-gradient-to-b from-primary/20 via-black to-black h-80 absolute w-full top-0 left-0 -z-10 opacity-50" />
         <SongList
           files={sortedFiles}

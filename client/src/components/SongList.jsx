@@ -140,7 +140,7 @@ const SongList = ({ files, currentSong, onPlay, onFolderClick, loading, onBack, 
             {songs.length > 0 && (
                 <div>
                     {/* Table Header */}
-                    <div className="grid grid-cols-[16px_1fr_100px] md:grid-cols-[40px_1fr_120px] items-center gap-4 px-4 py-2 border-b border-white/10 text-zinc-400 text-sm font-medium mb-4 sticky top-16 bg-[#121212] z-10 uppercase tracking-wider">
+                    <div className="grid grid-cols-[16px_1fr_100px] md:grid-cols-[40px_1fr_120px] items-center gap-4 px-4 py-2 border-b border-white/10 text-zinc-400 text-sm font-medium mb-4 sticky top-0 bg-[#121212] z-10 uppercase tracking-wider">
                         <span className="text-center">#</span>
                         <span className="pl-2">Title</span>
                         <span className="text-right flex items-center justify-end gap-2"><FaClock size={14} /> Size</span>
