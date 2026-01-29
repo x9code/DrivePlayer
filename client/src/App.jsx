@@ -392,11 +392,22 @@ function App() {
     }
   };
 
+  const handleGoHome = () => {
+    setSearchQuery('');
+    setIsSearching(false);
+    setCurrentFolderId(null);
+    fetchFiles(null);
+    window.history.pushState(null, '', '/');
+  };
+
   return (
     <div className="min-h-screen bg-darker text-white selection:bg-primary selection:text-black">
       {/* Header */}
       <header className="fixed top-0 w-full z-40 bg-black/40 backdrop-blur-md border-b border-white/5 h-16 flex items-center px-6 justify-between">
-        <div className="flex items-center gap-3">
+        <div
+          onClick={handleGoHome}
+          className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
+        >
           <FaGoogleDrive className="text-primary text-2xl" />
           <h1 className="text-xl font-bold tracking-tight hidden md:block">DrivePlayer</h1>
         </div>
