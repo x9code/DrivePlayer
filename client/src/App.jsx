@@ -321,6 +321,46 @@ function App() {
     fetchFiles(folderId);
   };
 
+  // Handle starting shuffle play directly from a folder
+  const handleFolderPlay = async (folderId) => {
+    // 1. Enter the folder (UI update)
+    if (isSearching) {
+      setSearchQuery('');
+      setIsSearching(false);
+    }
+
+    // Update URL
+    window.history.pushState({ folderId }, '', `?folder=${folderId}`);
+    setCurrentFolderId(folderId);
+
+    // 2. Fetch files specifically for this folder
+    setLoading(true);
+    try {
+      const url = `${API_BASE}/api/files?folderId=${folderId}`;
+      const res = await axios.get(url);
+
+      const fetchedFiles = res.data.files;
+      setFiles(fetchedFiles);
+
+      // Update cache
+      fileCache.current[folderId] = fetchedFiles;
+
+      // 3. Start Shuffle Play
+      const songList = fetchedFiles.filter(f => f.mimeType !== 'application/vnd.google-apps.folder');
+
+      if (songList.length > 0) {
+        setIsShuffle(true); // Enable Shuffle
+        const randomIndex = Math.floor(Math.random() * songList.length);
+        setCurrentSong(songList[randomIndex]);
+        setIsPlaying(true);
+      }
+    } catch (error) {
+      console.error("Error fetching folder for playback:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleBack = () => {
     if (isSearching) {
       clearSearch();
@@ -506,6 +546,7 @@ function App() {
           currentSong={currentSong}
           onPlay={handlePlay}
           onFolderClick={handleFolderClick}
+          onFolderPlay={handleFolderPlay}
           onBack={handleBack}
           canGoBack={!!currentFolderId || isSearching}
           onShufflePlay={handleShufflePlay}

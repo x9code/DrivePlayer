@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { FaPlay, FaFolder, FaArrowLeft, FaClock, FaSortAmountDown, FaSortAmountUp, FaFilter } from 'react-icons/fa';
 
-const SongList = ({ files, currentSong, onPlay, onFolderClick, loading, onBack, canGoBack, onShufflePlay, sortOption, sortDirection, onSortChange, cleanTitle }) => {
+const SongList = ({ files, currentSong, onPlay, onFolderClick, onFolderPlay, loading, onBack, canGoBack, onShufflePlay, sortOption, sortDirection, onSortChange, cleanTitle }) => {
 
     const [showSortMenu, setShowSortMenu] = useState(false);
 
@@ -120,8 +120,15 @@ const SongList = ({ files, currentSong, onPlay, onFolderClick, loading, onBack, 
                                             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                                         />
                                         <div className="absolute right-2 bottom-2 translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 shadow-xl z-10">
-                                            <div className="bg-green-500 rounded-full p-3 text-black shadow-lg hover:scale-105 transition-transform">
-                                                <FaFolder size={20} />
+                                            <div
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onFolderPlay(folder.id);
+                                                }}
+                                                className="bg-green-500 rounded-full p-3 text-black shadow-lg hover:scale-105 transition-transform hover:bg-green-400"
+                                                title="Play Folder (Shuffle)"
+                                            >
+                                                <FaPlay size={20} className="pl-1" />
                                             </div>
                                         </div>
                                     </div>
