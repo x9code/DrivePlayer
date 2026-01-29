@@ -58,11 +58,25 @@ function App() {
     localStorage.setItem('driveplayer_auth', 'true');
   };
 
-  const handleLock = () => {
+  const handleLock = useCallback(() => {
     setIsAuthenticated(false);
     localStorage.removeItem('driveplayer_auth');
     setIsPlaying(false); // Stop music on lock
-  };
+  }, []);
+
+  // Global Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Ctrl + L to Lock
+      if (e.ctrlKey && (e.key === 'l' || e.key === 'L')) {
+        e.preventDefault();
+        handleLock();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleLock]);
 
   // Sorting State
   const [sortOption, setSortOption] = useState('name'); // 'name', 'date', 'size'

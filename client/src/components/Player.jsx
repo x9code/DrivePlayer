@@ -608,21 +608,8 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
                     </div>
 
                     {/* Volume */}
-                    <div className="w-full max-w-sm flex items-center gap-4 mt-6" onClick={(e) => e.stopPropagation()}>
-                        <FaVolumeUp className="text-zinc-400" />
-                        <input
-                            type="range"
-                            min="0"
-                            max="1"
-                            step="0.01"
-                            value={volume}
-                            onChange={handleVolume}
-                            className="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer hover:bg-green-500 accent-white"
-                            style={{
-                                background: `linear-gradient(to right, #ffffff ${volume * 100}%, #4b5563 0)`
-                            }}
-                        />
-                    </div>
+                    {/* Volume removed from UI, kept shortcuts */}
+                    {/* <div className="w-full max-w-sm flex items-center gap-4 mt-6" onClick={(e) => e.stopPropagation()}>...</div> */}
                 </div>
             </div>
 
