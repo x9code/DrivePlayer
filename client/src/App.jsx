@@ -20,6 +20,7 @@ function App() {
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentFolderId, setCurrentFolderId] = useState(null)
   const [currentFolderName, setCurrentFolderName] = useState('Library'); // Default title
+  const rootFolderId = useRef(null); // Track root folder ID to hide back button
 
   // Favorites State (Persisted in localStorage)
   const [likedSongs, setLikedSongs] = useState(() => {
@@ -300,6 +301,9 @@ function App() {
 
       // Update current folder id if not set (initial load)
       if (!folderId && res.data.folderId) {
+        if (!rootFolderId.current) {
+          rootFolderId.current = res.data.folderId;
+        }
         setCurrentFolderId(res.data.folderId);
         // Also cache under the actual ID for future reference
         fileCache.current[res.data.folderId] = res.data.files;
@@ -641,7 +645,7 @@ function App() {
           onFolderClick={handleFolderClick}
           onFolderPlay={handleFolderPlay}
           onBack={handleBack}
-          canGoBack={!!currentFolderId || isSearching}
+          canGoBack={(!!currentFolderId && currentFolderId !== rootFolderId.current) || isSearching}
           onShufflePlay={handleShufflePlay}
           sortOption={sortOption}
           sortDirection={sortDirection}
