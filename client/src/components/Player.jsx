@@ -368,23 +368,55 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
                     <div className="flex items-center gap-6 justify-center w-full">
                         <button
                             onClick={(e) => { e.stopPropagation(); onShuffleToggle(); }}
-                            className={`transition-colors relative ${isShuffle ? 'text-green-500' : 'text-zinc-400 hover:text-white'}`}
+                            className={`group relative transition-colors ${isShuffle ? 'text-green-500' : 'text-zinc-400 hover:text-white'}`}
                         >
                             <FaRandom size={18} />
                             {isShuffle && <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-1 h-1 bg-green-500 rounded-full"></div>}
+                            <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-zinc-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                                Shuffle
+                            </span>
                         </button>
-                        <button onClick={(e) => { e.stopPropagation(); onPrev(); }} className="text-zinc-200 hover:text-white"><FaStepBackward size={24} /></button>
-                        <button onClick={(e) => { e.stopPropagation(); togglePlay(e); }} className="w-14 h-14 bg-white rounded-full flex items-center justify-center text-black hover:scale-105 transition-transform">
+
+                        <button
+                            onClick={(e) => { e.stopPropagation(); onPrev(); }}
+                            className="group relative text-zinc-200 hover:text-white"
+                        >
+                            <FaStepBackward size={24} />
+                            <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-zinc-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                                Previous (P)
+                            </span>
+                        </button>
+
+                        <button
+                            onClick={(e) => { e.stopPropagation(); togglePlay(e); }}
+                            className="group relative w-14 h-14 bg-white rounded-full flex items-center justify-center text-black hover:scale-105 transition-transform"
+                        >
                             {isPlaying ? <FaPause size={20} /> : <FaPlay size={20} className="ml-1" />}
+                            <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-zinc-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                                {isPlaying ? 'Pause (Space)' : 'Play (Space)'}
+                            </span>
                         </button>
-                        <button onClick={(e) => { e.stopPropagation(); onNext(false); }} className="text-zinc-200 hover:text-white"><FaStepForward size={24} /></button>
+
+                        <button
+                            onClick={(e) => { e.stopPropagation(); onNext(false); }}
+                            className="group relative text-zinc-200 hover:text-white"
+                        >
+                            <FaStepForward size={24} />
+                            <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-zinc-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                                Next (N)
+                            </span>
+                        </button>
+
                         <button
                             onClick={(e) => { e.stopPropagation(); onRepeatToggle(); }}
-                            className={`transition-colors relative ${repeatMode > 0 ? 'text-green-500' : 'text-zinc-400 hover:text-white'}`}
+                            className={`group relative transition-colors ${repeatMode > 0 ? 'text-green-500' : 'text-zinc-400 hover:text-white'}`}
                         >
                             <FaRedo size={18} />
                             {repeatMode === 2 && <span className="absolute -top-1.5 -right-1.5 text-[10px] font-bold bg-zinc-800 text-green-500 px-1 rounded-full">1</span>}
                             {repeatMode > 0 && <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-1 h-1 bg-green-500 rounded-full"></div>}
+                            <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-zinc-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                                {repeatMode === 0 ? 'Repeat Off' : repeatMode === 1 ? 'Repeat All' : 'Repeat One'}
+                            </span>
                         </button>
                     </div>
 
