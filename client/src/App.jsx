@@ -10,8 +10,16 @@ import LockScreen from './components/LockScreen'
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
 function App() {
+  // Constants
+  const LOCK_TIME = 5 * 60 * 1000; // 5 minutes
+
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return localStorage.getItem('driveplayer_auth') === 'true';
+    // Check if we have a valid session
+    const lastActive = localStorage.getItem('driveplayer_last_active');
+    if (!lastActive) return false;
+
+    const elapsed = Date.now() - parseInt(lastActive, 10);
+    return elapsed < LOCK_TIME;
   });
 
   const [files, setFiles] = useState([])
@@ -123,14 +131,19 @@ function App() {
   const [isShuffle, setIsShuffle] = useState(false);
   const [repeatMode, setRepeatMode] = useState(0); // 0: Off, 1: All, 2: One
 
+  // Helper to update last active time
+  const updateLastActive = useCallback(() => {
+    localStorage.setItem('driveplayer_last_active', Date.now().toString());
+  }, []);
+
   const handleUnlock = () => {
     setIsAuthenticated(true);
-    localStorage.setItem('driveplayer_auth', 'true');
+    updateLastActive();
   };
 
   const handleLock = useCallback(() => {
     setIsAuthenticated(false);
-    localStorage.removeItem('driveplayer_auth');
+    localStorage.removeItem('driveplayer_last_active');
     setIsPlaying(false); // Stop music on lock
   }, []);
 
@@ -147,6 +160,66 @@ function App() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleLock]);
+
+  // Persistent Auto-lock Logic
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    let timeout;
+
+    const checkInactivity = () => {
+      const lastActive = parseInt(localStorage.getItem('driveplayer_last_active') || '0', 10);
+      const now = Date.now();
+
+      // If playing, we assume active, so we update the timestamp to now
+      // This ensures that if the user closes the app while playing, the timestamp is fresh.
+      if (isPlaying) {
+        updateLastActive();
+        timeout = setTimeout(checkInactivity, 10000); // Check again in 10s (act as heartbeat)
+        return;
+      }
+
+      if (now - lastActive > LOCK_TIME) {
+        handleLock();
+      } else {
+        // Schedule next check
+        // Calculate remaining time, but cap it at e.g. 1 sec minimum to avoid hot loops
+        const remaining = LOCK_TIME - (now - lastActive);
+        // If remaining is large, we can wait that long. 
+        // BUT users might close/reopen, so we rely on the init check for that.
+        // Here we just want to lock LIVE if they sit idle.
+        timeout = setTimeout(checkInactivity, Math.max(1000, remaining));
+      }
+    };
+
+    // User Interaction Listener
+    // We throttle writing to localStorage to avoid perf issues
+    let lastThrottledUpdate = 0;
+    const handleUserActivity = () => {
+      const now = Date.now();
+      if (now - lastThrottledUpdate > 5000) { // Update max once every 5s
+        updateLastActive();
+        lastThrottledUpdate = now;
+
+        // If we were waiting for a lock, we might want to restart the check logic?
+        // Actually the check logic relies on localStorage, so updating it is enough.
+        // But we should ensure the timeout is running.
+        clearTimeout(timeout);
+        timeout = setTimeout(checkInactivity, LOCK_TIME);
+      }
+    };
+
+    const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'];
+    events.forEach(event => window.addEventListener(event, handleUserActivity));
+
+    // Start loop
+    checkInactivity();
+
+    return () => {
+      clearTimeout(timeout);
+      events.forEach(event => window.removeEventListener(event, handleUserActivity));
+    };
+  }, [isAuthenticated, isPlaying, handleLock, updateLastActive]);
 
   // Sorting State
   const [sortOption, setSortOption] = useState('name'); // 'name', 'date', 'size'
