@@ -314,7 +314,9 @@ function App() {
     return [...folders, ...songs];
   }, [files, sortOption, sortDirection]);
 
-  // --- Title Cleaning Logic (Moved from SongList for consistency) ---
+  // --- Title Cleaning Logic ---
+
+  const TITLE_SUFFIXES = useMemo(() => ['remix', 'mix', 'live', 'edit', 'version', 'ver', 'cover', 'official', 'video', 'audio', 'lyrics', 'remastered', 'instrumental'], []);
 
   // Helper: Find common terms (likely Artists) to help parsing
   const getCommonArtistTerms = useMemo(() => {
@@ -326,7 +328,11 @@ function App() {
       const name = s.name.replace(/\.[^/.]+$/, "").replace(/^\d+[\.\-\s]+/, "");
       const parts = name.split(' - ').map(p => p.trim());
       parts.forEach(p => {
-        if (p.length > 2 && !/^\d+$/.test(p)) {
+        // Exclude terms that are actually suffixes/tags
+        const lowerP = p.toLowerCase();
+        const isSuffix = TITLE_SUFFIXES.some(suffix => lowerP.includes(suffix));
+
+        if (p.length > 2 && !/^\d+$/.test(p) && !isSuffix) {
           termCounts[p] = (termCounts[p] || 0) + 1;
         }
       });
@@ -337,7 +343,7 @@ function App() {
       if (count >= threshold) common.add(term.toLowerCase());
     });
     return common;
-  }, [sortedFiles]);
+  }, [sortedFiles, TITLE_SUFFIXES]);
 
   const cleanTitle = useCallback((fileName) => {
     let name = fileName.replace(/\.[^/.]+$/, ""); // Remove extension
@@ -371,14 +377,13 @@ function App() {
       if (featRegex.test(part2) && !featRegex.test(part1)) return part1;
 
       // Suffix Heuristic
-      const suffixes = ['remix', 'mix', 'live', 'edit', 'version', 'ver', 'cover', 'official', 'video', 'audio', 'lyrics', 'remastered', 'instrumental'];
-      if (suffixes.some(s => p2Lower.includes(s))) return name;
+      if (TITLE_SUFFIXES.some(s => p2Lower.includes(s))) return name;
 
       // Default
       return name;
     }
     return name;
-  }, [getCommonArtistTerms]);
+  }, [getCommonArtistTerms, TITLE_SUFFIXES]);
 
   // Fetch files (songs + folders)
   const fetchFiles = async (folderId = null) => {
