@@ -77,19 +77,33 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
             // Sync Full Screen State
             const handleFS = () => setIsFullScreen(!!document.fullscreenElement);
             document.addEventListener('fullscreenchange', handleFS);
-            return () => document.removeEventListener('fullscreenchange', handleFS);
+            // Cleanup provided in return below
 
+            // Sync Document Title
+            const titleText = meta.title || (cleanTitle ? cleanTitle(currentSong.name) : currentSong.name);
+            const artistText = meta.artist || 'DrivePlayer';
+            document.title = isPlaying ? `${titleText} • ${artistText}` : 'DrivePlayer';
 
             // MediaSession API for Background Playback & Lock Screen Controls
             if ('mediaSession' in navigator) {
+                const folderId = currentSong.parents && currentSong.parents[0] ? currentSong.parents[0] : '';
+                const artUrl = new URL(`${API_BASE}/api/thumbnail/${currentSong.id}?folderId=${folderId}`, window.location.origin).href;
+
                 navigator.mediaSession.metadata = new MediaMetadata({
-                    title: meta.title || (cleanTitle ? cleanTitle(currentSong.name) : currentSong.name),
-                    artist: meta.artist || 'Google Drive',
+                    title: titleText,
+                    artist: artistText,
                     album: meta.album || 'DrivePlayer',
                     artwork: [
-                        { src: `${API_BASE}/api/thumbnail/${currentSong.id}`, sizes: '512x512', type: 'image/png' }
+                        { src: artUrl, sizes: '96x96', type: 'image/png' },
+                        { src: artUrl, sizes: '128x128', type: 'image/png' },
+                        { src: artUrl, sizes: '192x192', type: 'image/png' },
+                        { src: artUrl, sizes: '256x256', type: 'image/png' },
+                        { src: artUrl, sizes: '384x384', type: 'image/png' },
+                        { src: artUrl, sizes: '512x512', type: 'image/png' },
                     ]
                 });
+
+                navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
 
                 navigator.mediaSession.setActionHandler('play', () => {
                     setIsPlaying(true);
@@ -110,6 +124,10 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
                     }
                 });
             }
+
+            return () => {
+                document.removeEventListener('fullscreenchange', handleFS);
+            };
         }
     }, [currentSong, isPlaying, meta, onNext, onPrev, setIsPlaying]);
 
