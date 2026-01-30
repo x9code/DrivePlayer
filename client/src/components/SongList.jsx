@@ -63,10 +63,10 @@ const FolderCard = React.memo(({ folder, onFolderClick, onFolderPlay, uploading,
 });
 
 const Equalizer = () => (
-    <div className="flex items-end gap-[1px] h-3 w-3.5 mb-0.5 justify-center">
-        <div className="w-1 bg-primary rounded-t-[1px]" style={{ animation: 'equalize 0.8s infinite', animationDelay: '0s' }}></div>
-        <div className="w-1 bg-primary rounded-t-[1px]" style={{ animation: 'equalize 0.8s infinite', animationDelay: '0.2s' }}></div>
-        <div className="w-1 bg-primary rounded-t-[1px]" style={{ animation: 'equalize 0.8s infinite', animationDelay: '0.4s' }}></div>
+    <div className="flex items-end gap-[2px] h-3.5 w-4 justify-center">
+        <div className="w-[3px] bg-primary rounded-t-sm" style={{ animation: 'equalize 0.8s infinite', animationDelay: '0s' }}></div>
+        <div className="w-[3px] bg-primary rounded-t-sm" style={{ animation: 'equalize 0.8s infinite', animationDelay: '0.2s' }}></div>
+        <div className="w-[3px] bg-primary rounded-t-sm" style={{ animation: 'equalize 0.8s infinite', animationDelay: '0.4s' }}></div>
     </div>
 );
 
