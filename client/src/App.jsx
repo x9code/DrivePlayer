@@ -1,10 +1,10 @@
-
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import axios from 'axios'
 import Player from './components/Player'
 import SongList from './components/SongList'
-import { FaGoogleDrive, FaSearch, FaTimes, FaHeart, FaRegHeart, FaLock } from 'react-icons/fa'
+import { FaGoogleDrive, FaSearch, FaTimes, FaHeart, FaRegHeart, FaLock, FaCog } from 'react-icons/fa'
 import LockScreen from './components/LockScreen'
+import SettingsModal from './components/SettingsModal'
 
 // Environment variable for API URL (Production vs Dev)
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -130,6 +130,7 @@ function App() {
 
   const [isShuffle, setIsShuffle] = useState(false);
   const [repeatMode, setRepeatMode] = useState(0); // 0: Off, 1: All, 2: One
+  const [showSettings, setShowSettings] = useState(false);
 
   // Helper to update last active time
   const updateLastActive = useCallback(() => {
@@ -680,6 +681,15 @@ function App() {
         </div>
 
         <div className="flex items-center gap-4">
+          {/* Settings Button */}
+          <button
+            onClick={() => setShowSettings(true)}
+            className="hidden md:flex items-center justify-center p-2 rounded-full bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-colors"
+            title="Settings"
+          >
+            <FaCog className="text-sm" />
+          </button>
+
           {/* Lock Button (Added) */}
           <button
             onClick={handleLock}
@@ -743,6 +753,9 @@ function App() {
         toggleLike={toggleLike}
         themeColor={themeColor}
       />
+
+      {/* Modals */}
+      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
 
       {/* Lock Screen Overlay - Always rendered for animation */}
       <LockScreen isLocked={!isAuthenticated} onUnlock={handleUnlock} />
