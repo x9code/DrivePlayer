@@ -552,7 +552,7 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
                         <FaChevronDown size={24} />
                     </button>
 
-                    <span className="text-xs font-bold tracking-widest uppercase">Now Playing</span>
+                    <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-xs font-bold tracking-widest uppercase mr-[-0.25em]">Now Playing</span>
 
                     <div className="flex items-center gap-2">
                         {/* Visualizer Settings */}
