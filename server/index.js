@@ -455,22 +455,47 @@ app.get('/api/stream/:fileId', async (req, res) => {
     }
 });
 
-// --- Mock OTP System ---
+// --- Telegram OTP System ---
+const TelegramBot = require('node-telegram-bot-api');
+let bot = null;
+
+// Initialize Bot if credentials exist
+if (process.env.TELEGRAM_BOT_TOKEN) {
+    bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: false });
+    // Polling false because we only send messages, we don't need to read them
+    console.log('Telegram Bot Initialized');
+} else {
+    console.log('Telegram Bot Token Missing - OTPs will fail or fallback to console');
+}
+
 let currentOtp = null;
 let otpExpires = 0;
 
-app.post('/api/auth/otp/send', (req, res) => {
+app.post('/api/auth/otp/send', async (req, res) => {
     // Generate 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     currentOtp = otp;
     otpExpires = Date.now() + 5 * 60 * 1000; // 5 minutes
 
-    console.log('\n=============================');
-    console.log(`[MOCK SMS] To: 7077105796`);
-    console.log(`[MOCK SMS] Message: Your DrivePlayer Verification Code is: ${otp}`);
-    console.log('=============================\n');
+    const message = `🔐 *DrivePlayer Verification*\n\nYour code is: \`${otp}\`\n\nValid for 5 minutes.`;
 
-    res.json({ success: true, message: 'OTP Sent' });
+    try {
+        if (bot && process.env.TELEGRAM_CHAT_ID) {
+            await bot.sendMessage(process.env.TELEGRAM_CHAT_ID, message, { parse_mode: 'Markdown' });
+            console.log(`[Telegram] OTP Sent to ${process.env.TELEGRAM_CHAT_ID}`);
+            res.json({ success: true, message: 'OTP Sent to Telegram' });
+        } else {
+            // Fallback for debugging if env missing
+            console.log('\n=============================');
+            console.log(`[MOCK SMS] To: Telegram User`);
+            console.log(`[MOCK SMS] Message: Your Code is: ${otp}`);
+            console.log('=============================\n');
+            res.json({ success: true, message: 'OTP Generated (Check Console)' });
+        }
+    } catch (error) {
+        console.error('Telegram Error:', error.message);
+        res.status(500).json({ error: 'Failed to send Telegram message' });
+    }
 });
 
 app.post('/api/auth/otp/verify', (req, res) => {
