@@ -455,6 +455,47 @@ app.get('/api/stream/:fileId', async (req, res) => {
     }
 });
 
+// --- Mock OTP System ---
+let currentOtp = null;
+let otpExpires = 0;
+
+app.post('/api/auth/otp/send', (req, res) => {
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    currentOtp = otp;
+    otpExpires = Date.now() + 5 * 60 * 1000; // 5 minutes
+
+    console.log('\n=============================');
+    console.log(`[MOCK SMS] To: 7077105796`);
+    console.log(`[MOCK SMS] Message: Your DrivePlayer Verification Code is: ${otp}`);
+    console.log('=============================\n');
+
+    res.json({ success: true, message: 'OTP Sent' });
+});
+
+app.post('/api/auth/otp/verify', (req, res) => {
+    const { otp } = req.body;
+
+    // Debugging Logs
+    console.log(`[OTP Verify] Received: '${otp}' (${typeof otp})`);
+    console.log(`[OTP Verify] Stored:   '${currentOtp}' (${typeof currentOtp})`);
+
+    if (!otp) return res.status(400).json({ error: 'OTP required' });
+
+    if (!currentOtp || Date.now() > otpExpires) {
+        return res.json({ valid: false, message: 'OTP Expired' });
+    }
+
+    // Ensure strict string comparison
+    if (String(otp).trim() === String(currentOtp).trim()) {
+        // Clear OTP after successful use to prevent replay (optional, but good practice)
+        currentOtp = null;
+        res.json({ valid: true });
+    } else {
+        res.json({ valid: false, message: 'Invalid OTP' });
+    }
+});
+
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
