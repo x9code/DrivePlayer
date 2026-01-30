@@ -170,7 +170,7 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
     useEffect(() => {
         let timer;
         if (isExpanded) {
-            timer = setTimeout(() => setShowVisualizer(true), 550);
+            timer = setTimeout(() => setShowVisualizer(true), 350);
         } else {
             setShowVisualizer(false);
         }
@@ -252,7 +252,7 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
                     value = (dataArray[index - 1] + dataArray[index] + dataArray[index + 1]) / 3;
                 }
 
-                const barHeight = (value / 255) * (height * 0.9);
+                const barHeight = (value / 255) * (height * 0.5);
 
                 if (barHeight > 2) {
                     const x = i * barWidth;
@@ -328,7 +328,7 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
         <>
             {/* FLOATING CAPSULE PLAYER (Mini) */}
             <div
-                className={`fixed z-50 transition-all duration-500 cubic-bezier(0.32, 0.72, 0, 1) overflow-hidden
+                className={`fixed z-50 transition-all duration-300 cubic-bezier(0.32, 0.72, 0, 1) overflow-hidden
                     left-1/2 -translate-x-1/2
                     ${isExpanded
                         ? 'bottom-0 w-full h-full rounded-none bg-black' // Expanded: Full width/height, 0 bottom
@@ -349,7 +349,7 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
                         <div className="absolute inset-0 bg-black/40"></div>
 
                         {/* Audio Visualizer Canvas */}
-                        <div className={`absolute bottom-0 left-0 w-full h-64 pointer-events-none z-0 mix-blend-screen transition-all duration-1000 ease-out ${showVisualizer ? 'opacity-60 translate-y-0' : 'opacity-0 translate-y-20'}`}>
+                        <div className={`absolute bottom-0 left-0 w-full h-64 pointer-events-none z-0 mix-blend-screen transition-all duration-500 ease-out ${showVisualizer ? 'opacity-60 translate-y-0' : 'opacity-0 translate-y-20'}`}>
                             <canvas ref={canvasRef} width={1000} height={300} className="w-full h-full" />
                         </div>
                     </div>
@@ -411,7 +411,7 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
 
 
                 {/* --- EXPANDED CONTENT --- */}
-                <div className={`absolute inset-0 flex flex-col items-center justify-center p-8 transition-all duration-500 delay-100 ${isExpanded ? 'opacity-100 scale-100' : 'opacity-0 pointer-events-none scale-95'}`}>
+                <div className={`absolute inset-0 flex flex-col items-center justify-center p-8 transition-all duration-300 delay-100 ${isExpanded ? 'opacity-100 scale-100' : 'opacity-0 pointer-events-none scale-95'}`}>
 
                     {/* Header */}
                     <div className="absolute top-8 left-8 right-8 flex justify-between items-center text-zinc-400 z-20">

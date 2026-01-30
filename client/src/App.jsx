@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import axios from 'axios'
 import Player from './components/Player'
 import SongList from './components/SongList'
-import { IoLogoGoogle, IoSearchOutline, IoCloseOutline, IoHeart, IoHeartOutline, IoLockClosedOutline, IoSettingsOutline } from 'react-icons/io5'
+import { IoLogoGoogle, IoSearchOutline, IoCloseOutline, IoHeart, IoHeartOutline, IoLockClosedOutline, IoSettingsOutline, IoArrowBack, IoFilterOutline, IoChevronDown, IoChevronUp, IoPlay } from 'react-icons/io5'
 import LockScreen from './components/LockScreen'
 import SettingsModal from './components/SettingsModal'
 
@@ -192,6 +192,7 @@ function App() {
   const [isShuffle, setIsShuffle] = useState(false);
   const [repeatMode, setRepeatMode] = useState(0); // 0: Off, 1: All, 2: One
   const [showSettings, setShowSettings] = useState(false);
+  const [showSortMenu, setShowSortMenu] = useState(false);
 
   // Helper to update last active time
   const updateLastActive = useCallback(() => {
@@ -669,16 +670,46 @@ function App() {
     setIsPlaying(true);
   };
 
-  const handleShufflePlay = () => {
+  const handleShufflePlay = async () => {
     // Determine context: use current view
     const songList = sortedFiles.filter(f => f.mimeType !== 'application/vnd.google-apps.folder');
-    if (songList.length === 0) return;
 
-    setQueue(songList);
-    const randomIndex = Math.floor(Math.random() * songList.length);
-    setCurrentSong(songList[randomIndex]);
-    setIsPlaying(true);
-    setIsShuffle(true);
+    // Case 1: Current view has songs
+    if (songList.length > 0) {
+      setQueue(songList);
+      const randomIndex = Math.floor(Math.random() * songList.length);
+      setCurrentSong(songList[randomIndex]);
+      setIsPlaying(true);
+      setIsShuffle(true);
+      return;
+    }
+
+    // Case 2: Current view has NO songs (e.g. Root), pick a random folder
+    const folders = sortedFiles.filter(f => f.mimeType === 'application/vnd.google-apps.folder');
+    if (folders.length > 0) {
+      // Pick random folder
+      const randomFolder = folders[Math.floor(Math.random() * folders.length)];
+
+      try {
+        const url = `${API_BASE}/api/files?folderId=${randomFolder.id}`;
+        const res = await axios.get(url);
+        const fetchedFiles = res.data.files;
+        const folderSongs = fetchedFiles.filter(f => f.mimeType !== 'application/vnd.google-apps.folder');
+
+        if (folderSongs.length > 0) {
+          setQueue(folderSongs);
+          setIsShuffle(true);
+          const randomIndex = Math.floor(Math.random() * folderSongs.length);
+          setCurrentSong(folderSongs[randomIndex]);
+          setIsPlaying(true);
+          // Optional: Notify user "Playing from [Folder Name]"?
+        } else {
+          console.warn("Selected random folder was empty.");
+        }
+      } catch (error) {
+        console.error("Error fetching random folder contents:", error);
+      }
+    }
   };
 
   const toggleRepeat = () => {
@@ -726,23 +757,30 @@ function App() {
       />
       {/* Header */}
       <header className={`fixed top-0 w-full z-40 h-20 flex items-center px-6 justify-between transition-colors duration-500 ${gradientEnabled ? 'bg-black/40 backdrop-blur-3xl border-b-0 shadow-lg' : 'bg-black/60 backdrop-blur-xl border-b border-white/5'}`}>
-        <div
-          onClick={handleGoHome}
-          className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
-        >
-          <IoLogoGoogle className="text-primary text-2xl" />
-          <h1 className="text-xl font-semibold tracking-tight hidden md:block">DrivePlayer</h1>
+        <div className="flex items-center gap-3 min-w-0 mr-4">
+          {((currentFolderId && currentFolderId !== rootFolderId.current) || isSearching) && (
+            <button onClick={handleBack} className="glass-button w-10 h-10 rounded-full flex items-center justify-center text-white hover:scale-105 shrink-0" title="Go Back">
+              <IoArrowBack size={20} />
+            </button>
+          )}
+          <div
+            onClick={handleGoHome}
+            className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity min-w-0"
+          >
+            <IoLogoGoogle className="text-primary text-2xl shrink-0" />
+            <h1 className="text-xl font-semibold tracking-tight hidden md:block truncate">{currentFolderName || 'DrivePlayer'}</h1>
+          </div>
         </div>
 
         {/* Search Bar - VisionOS Style */}
-        <div className="relative w-full max-w-md mx-4">
+        <div className="relative w-full max-w-sm mx-4 hidden md:block">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <IoSearchOutline className="text-white/40 text-lg" />
           </div>
           <input
             type="text"
             className="block w-full pl-10 pr-10 py-2.5 rounded-full leading-5 bg-white/10 border border-white/5 text-gray-200 placeholder-white/30 focus:outline-none focus:bg-white/15 focus:ring-1 focus:ring-white/20 transition-all backdrop-blur-md shadow-inner"
-            placeholder="Search songs..."
+            placeholder="Search..."
             value={searchQuery}
             onChange={handleSearchChange}
           />
@@ -756,7 +794,59 @@ function App() {
           )}
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
+
+          {/* Sort Button - Only show if there are files to sort */}
+          {sortedFiles.some(f => f.mimeType !== 'application/vnd.google-apps.folder') && (
+            <div className="relative">
+              <button
+                onClick={() => setShowSortMenu(!showSortMenu)}
+                className="glass-button w-10 h-10 sm:w-auto rounded-full sm:px-4 flex items-center justify-center gap-2 text-zinc-300 hover:text-white hover:bg-white/10"
+                title="Sort"
+              >
+                <IoFilterOutline size={20} />
+                <span className="hidden sm:inline text-sm font-medium">Sort</span>
+              </button>
+
+              {/* Dropdown */}
+              {showSortMenu && (
+                <div className="absolute right-0 top-full mt-2 w-48 glass-panel rounded-2xl overflow-hidden p-1.5 z-50 animate-in fade-in zoom-in-95 duration-200 shadow-2xl ring-1 ring-white/10">
+                  <div className="px-3 py-2 text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Sort By</div>
+                  {['name', 'date', 'size'].map(opt => (
+                    <button
+                      key={opt}
+                      onClick={() => {
+                        handleSortChange(opt);
+                        setShowSortMenu(false);
+                      }}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-sm flex items-center justify-between transition-colors
+                                  ${sortOption === opt ? 'bg-white/10 text-white' : 'text-zinc-400 hover:bg-white/5 hover:text-white'}
+                              `}
+                    >
+                      <span className="capitalize">{opt}</span>
+                      {sortOption === opt && (
+                        sortDirection === 'asc' ? <IoChevronUp size={14} /> : <IoChevronDown size={14} />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {/* Backdrop for closing menu */}
+              {showSortMenu && (
+                <div className="fixed inset-0 z-40" onClick={() => setShowSortMenu(false)}></div>
+              )}
+            </div>
+          )}
+
+          {/* Shuffle Button (Compact) */}
+          <button
+            onClick={handleShufflePlay}
+            className="glass-button w-10 h-10 rounded-full flex items-center justify-center text-zinc-300 hover:text-white hover:scale-105"
+            title="Shuffle Play"
+          >
+            <IoPlay size={20} className="pl-0.5" />
+          </button>
+
           {/* Settings Button */}
           <button
             onClick={() => setShowSettings(true)}
@@ -783,10 +873,10 @@ function App() {
               setFiles(likedSongs);
               window.history.pushState({ folderId: 'favorites' }, '', '?folder=favorites');
             }}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-full transition-all duration-300 border ${currentFolderId === 'favorites' ? 'bg-primary text-black border-transparent font-bold shadow-glow' : 'glass-button text-white border-white/5'}`}
+            className={`glass-button w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${currentFolderId === 'favorites' ? 'text-primary bg-primary/10 border-primary/50' : 'text-zinc-300 hover:text-white'}`}
+            title="Favorites"
           >
-            {currentFolderId === 'favorites' ? <IoHeart className="text-lg" /> : <IoHeartOutline className="text-primary text-lg" />}
-            <span className="hidden sm:inline font-medium">Favorites</span>
+            {currentFolderId === 'favorites' ? <IoHeart className="text-xl" /> : <IoHeartOutline className="text-xl" />}
           </button>
         </div>
 
@@ -796,19 +886,12 @@ function App() {
       <main className="mt-20 h-[calc(100vh-5rem)] overflow-y-auto custom-scrollbar relative pb-32">
 
         <SongList
-          title={isSearching ? `Search Results for "${searchQuery}"` : currentFolderName}
           files={sortedFiles}
           loading={loading}
           currentSong={currentSong}
           onPlay={handlePlay}
           onFolderClick={handleFolderClick}
           onFolderPlay={handleFolderPlay}
-          onBack={handleBack}
-          canGoBack={(!!currentFolderId && currentFolderId !== rootFolderId.current) || isSearching}
-          onShufflePlay={handleShufflePlay}
-          sortOption={sortOption}
-          sortDirection={sortDirection}
-          onSortChange={handleSortChange}
           cleanTitle={cleanTitle}
         />
       </main>

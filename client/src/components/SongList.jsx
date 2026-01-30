@@ -107,9 +107,8 @@ const SongRow = React.memo(({ file, index, isCurrent, onPlay, cleanTitle, format
     );
 });
 
-const SongList = ({ title, files, currentSong, onPlay, onFolderClick, onFolderPlay, loading, onBack, canGoBack, onShufflePlay, sortOption, sortDirection, onSortChange, cleanTitle }) => {
+const SongList = ({ files, currentSong, onPlay, onFolderClick, onFolderPlay, loading, cleanTitle }) => {
 
-    const [showSortMenu, setShowSortMenu] = useState(false);
     const [uploading, setUploading] = useState(null); // folderId being uploaded to
     const [cacheBuster, setCacheBuster] = useState(Date.now()); // Force image refresh
 
@@ -156,75 +155,7 @@ const SongList = ({ title, files, currentSong, onPlay, onFolderClick, onFolderPl
     };
 
     return (
-        <div className="w-full max-w-7xl mx-auto pb-40 pt-8 px-5 md:px-10">
-
-            {/* Header */}
-            <header className="mb-4 flex items-center justify-between gap-4 sticky top-0 z-30 bg-black/40 backdrop-blur-3xl py-4 -mx-5 px-5 md:-mx-10 md:px-10 transition-all rounded-b-3xl md:rounded-b-none border-b border-white/5 md:border-none">
-                <div className="flex items-center gap-4 min-w-0">
-                    {canGoBack && (
-                        <button onClick={onBack} className="glass-button w-10 h-10 rounded-full flex items-center justify-center text-white hover:scale-105 shrink-0" title="Go Back">
-                            <IoArrowBack size={20} />
-                        </button>
-                    )}
-                    <h2 className="text-2xl md:text-3xl font-bold tracking-tight truncate bg-clip-text text-transparent bg-gradient-to-r from-white to-white/70" title={title || 'Library'}>{title || 'Library'}</h2>
-                </div>
-
-                {songs.length > 0 && (
-                    <div className="flex items-center gap-3 shrink-0">
-                        {/* Sort Button */}
-                        <div className="relative">
-                            <button
-                                onClick={() => setShowSortMenu(!showSortMenu)}
-                                className="glass-button h-10 rounded-full px-4 text-sm font-medium text-white flex items-center gap-2 hover:bg-white/10"
-                                title="Sort Songs"
-                            >
-                                <IoFilterOutline size={16} />
-                                <span className="hidden sm:inline">Sort</span>
-                            </button>
-
-                            {/* Dropdown */}
-                            {showSortMenu && (
-                                <div className="absolute right-0 top-full mt-2 w-56 glass-panel rounded-2xl overflow-hidden p-1.5 z-50 animate-in fade-in zoom-in-95 duration-200">
-                                    <p className="px-3 py-2 text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Sort By</p>
-
-                                    {['name', 'date', 'size'].map(opt => (
-                                        <button
-                                            key={opt}
-                                            onClick={() => {
-                                                onSortChange(opt);
-                                                setShowSortMenu(false);
-                                            }}
-                                            className={`w-full text-left px-3 py-2.5 rounded-xl text-sm flex items-center justify-between transition-colors
-                                                ${sortOption === opt ? 'bg-white/10 text-white' : 'text-zinc-300 hover:bg-white/5 hover:text-white'}
-                                            `}
-                                        >
-                                            <span className="capitalize font-medium">{opt}</span>
-                                            {sortOption === opt && (
-                                                sortDirection === 'asc' ? <IoChevronUp size={14} /> : <IoChevronDown size={14} />
-                                            )}
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-
-                            {/* Backdrop for closing menu */}
-                            {showSortMenu && (
-                                <div className="fixed inset-0 z-40" onClick={() => setShowSortMenu(false)}></div>
-                            )}
-                        </div>
-
-                        {/* Shuffle Button */}
-                        <button
-                            onClick={onShufflePlay}
-                            className="bg-white text-black h-10 w-10 md:w-auto md:px-5 rounded-full font-bold shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center gap-2"
-                            title="Shuffle Play"
-                        >
-                            <IoPlay size={20} className="ml-0.5 md:ml-0" />
-                            <span className="hidden md:inline">Shuffle</span>
-                        </button>
-                    </div>
-                )}
-            </header>
+        <div className="w-full max-w-7xl mx-auto pb-40 pt-4 px-5 md:px-10">
 
             {/* Folder Grid (Spotify Cards) */}
             {folders.length > 0 && (
@@ -262,7 +193,7 @@ const SongList = ({ title, files, currentSong, onPlay, onFolderClick, onFolderPl
             {songs.length > 0 && (
                 <div>
                     {/* Table Header */}
-                    <div className="grid grid-cols-[32px_1fr_100px] md:grid-cols-[48px_1fr_120px] items-center gap-4 px-4 py-3 border-b border-white/5 text-zinc-500 text-xs font-semibold mb-2 sticky top-[72px] bg-black/40 backdrop-blur-xl z-20 uppercase tracking-widest rounded-xl">
+                    <div className="grid grid-cols-[32px_1fr_100px] md:grid-cols-[48px_1fr_120px] items-center gap-4 px-4 py-3 border-b border-white/5 text-zinc-500 text-xs font-semibold mb-2 uppercase tracking-widest">
                         <span className="text-center">#</span>
                         <span className="pl-1">Title</span>
                         <span className="text-right flex items-center justify-end gap-1"><IoTimeOutline size={14} /> Size</span>
