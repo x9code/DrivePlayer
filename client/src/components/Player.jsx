@@ -349,7 +349,7 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
                         <div className="absolute inset-0 bg-black/40"></div>
 
                         {/* Audio Visualizer Canvas */}
-                        <div className={`absolute bottom-0 left-0 w-full h-64 pointer-events-none z-0 mix-blend-screen transition-opacity duration-1000 ${showVisualizer ? 'opacity-60' : 'opacity-0'}`}>
+                        <div className={`absolute bottom-0 left-0 w-full h-64 pointer-events-none z-0 mix-blend-screen transition-all duration-1000 ease-out ${showVisualizer ? 'opacity-60 translate-y-0' : 'opacity-0 translate-y-20'}`}>
                             <canvas ref={canvasRef} width={1000} height={300} className="w-full h-full" />
                         </div>
                     </div>
@@ -418,7 +418,7 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
                         <button onClick={(e) => { e.stopPropagation(); setIsExpanded(false); }} className="glass-button w-10 h-10 rounded-full flex items-center justify-center hover:text-white">
                             <IoChevronDown size={24} />
                         </button>
-                        <span className="text-xs font-bold tracking-[0.2em] text-white/50 uppercase">Now Playing</span>
+
                         <div className="flex gap-3">
                             {/* Settings Toggle */}
                             <div className="relative group">
