@@ -62,6 +62,14 @@ const FolderCard = React.memo(({ folder, onFolderClick, onFolderPlay, uploading,
     );
 });
 
+const Equalizer = () => (
+    <div className="flex items-end gap-[1px] h-3 w-3.5 mb-0.5 justify-center">
+        <div className="w-1 bg-primary rounded-t-[1px]" style={{ animation: 'equalize 0.8s infinite', animationDelay: '0s' }}></div>
+        <div className="w-1 bg-primary rounded-t-[1px]" style={{ animation: 'equalize 0.8s infinite', animationDelay: '0.2s' }}></div>
+        <div className="w-1 bg-primary rounded-t-[1px]" style={{ animation: 'equalize 0.8s infinite', animationDelay: '0.4s' }}></div>
+    </div>
+);
+
 const SongRow = React.memo(({ file, index, isCurrent, onPlay, cleanTitle, formatSize }) => {
     return (
         <div
@@ -73,7 +81,7 @@ const SongRow = React.memo(({ file, index, isCurrent, onPlay, cleanTitle, format
             {/* Play/Index Column */}
             <div className="text-zinc-400 text-center text-sm font-mono flex justify-center items-center h-full">
                 {isCurrent ? (
-                    <img src="https://open.spotifycdn.com/cdn/images/equaliser-animated-green.f93a2ef4.gif" className="h-4 w-4" alt="Playing" />
+                    <Equalizer />
                 ) : (
                     <>
                         <span className="group-hover:hidden">{index + 1}</span>
@@ -151,27 +159,27 @@ const SongList = ({ title, files, currentSong, onPlay, onFolderClick, onFolderPl
         <div className="w-full max-w-7xl mx-auto pb-32 pt-6 px-4 md:px-8">
 
             {/* Header */}
-            <header className="mb-6 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
+            <header className="mb-2 flex items-center justify-between gap-4 sticky top-0 z-30 bg-[#121212] py-3 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-white/5 transition-all">
+                <div className="flex items-center gap-3 min-w-0">
                     {canGoBack && (
-                        <button onClick={onBack} className="p-3 bg-black/20 hover:bg-white/10 rounded-full transition-colors" title="Go Back">
-                            <FaArrowLeft />
+                        <button onClick={onBack} className="p-2 bg-black/20 hover:bg-white/10 rounded-full transition-colors shrink-0" title="Go Back">
+                            <FaArrowLeft size={14} />
                         </button>
                     )}
-                    <h2 className="text-3xl font-bold tracking-tight">{title || 'Library'}</h2>
+                    <h2 className="text-xl md:text-2xl font-bold tracking-tight truncate" title={title || 'Library'}>{title || 'Library'}</h2>
                 </div>
 
                 {songs.length > 0 && (
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                         {/* Sort Button */}
                         <div className="relative">
                             <button
                                 onClick={() => setShowSortMenu(!showSortMenu)}
-                                className="bg-white/10 hover:bg-white/20 text-white font-medium rounded-full px-4 py-2 transition-colors flex items-center gap-2"
+                                className="bg-white/10 hover:bg-white/20 text-white font-medium rounded-full px-3 py-1.5 transition-colors flex items-center gap-1.5"
                                 title="Sort Songs"
                             >
-                                <FaFilter size={14} />
-                                <span className="text-sm hidden sm:inline">Sort</span>
+                                <FaFilter size={12} />
+                                <span className="text-xs hidden sm:inline">Sort</span>
                             </button>
 
                             {/* Dropdown */}
@@ -210,10 +218,10 @@ const SongList = ({ title, files, currentSong, onPlay, onFolderClick, onFolderPl
                         {/* Shuffle Button */}
                         <button
                             onClick={onShufflePlay}
-                            className="bg-primary hover:bg-primary/80 text-black font-bold rounded-full p-4 transition-transform hover:scale-105 shadow-xl flex items-center justify-center"
+                            className="bg-primary hover:bg-primary/80 text-black font-bold rounded-full p-2.5 transition-transform hover:scale-105 shadow-xl flex items-center justify-center"
                             title="Shuffle Play"
                         >
-                            <FaPlay className="pl-1" size={20} />
+                            <FaPlay className="pl-0.5" size={16} />
                         </button>
                     </div>
                 )}
@@ -255,7 +263,7 @@ const SongList = ({ title, files, currentSong, onPlay, onFolderClick, onFolderPl
             {songs.length > 0 && (
                 <div>
                     {/* Table Header */}
-                    <div className="grid grid-cols-[16px_1fr_100px] md:grid-cols-[40px_1fr_120px] items-center gap-4 px-4 py-2 border-b border-white/10 text-zinc-400 text-sm font-medium mb-4 sticky top-0 bg-[#121212] z-10 uppercase tracking-wider">
+                    <div className="grid grid-cols-[16px_1fr_100px] md:grid-cols-[40px_1fr_120px] items-center gap-4 px-4 py-2 border-b border-white/10 text-zinc-400 text-sm font-medium mb-4 sticky top-[64px] bg-[#121212] z-20 uppercase tracking-wider">
                         <span className="text-center">#</span>
                         <span className="pl-2">Title</span>
                         <span className="text-right flex items-center justify-end gap-2"><FaClock size={14} /> Size</span>

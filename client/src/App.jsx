@@ -67,43 +67,47 @@ function App() {
     img.onload = () => {
       try {
         const canvas = document.createElement('canvas');
-        // Resize to small manageable size
-        canvas.width = 50;
-        canvas.height = 50;
+        canvas.width = 10;
+        canvas.height = 10;
         const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, 50, 50);
+        ctx.drawImage(img, 0, 0, 10, 10);
 
-        const imageData = ctx.getImageData(0, 0, 50, 50).data;
-        let maxSaturation = -1;
-        let bestColor = '29, 185, 84';
+        const imageData = ctx.getImageData(0, 0, 10, 10).data;
+        let maxScore = -1;
+        let bestR = 29, bestG = 185, bestB = 84;
 
-        // Sample every 4th pixel for speed
-        for (let i = 0; i < imageData.length; i += 16) {
+        for (let i = 0; i < imageData.length; i += 4) {
           const r = imageData[i];
           const g = imageData[i + 1];
           const b = imageData[i + 2];
 
-          // Calculate Saturation (HSL)
+          // Calculate HSL components
           const max = Math.max(r, g, b);
           const min = Math.min(r, g, b);
+          const l = (max + min) / 2 / 255;
           const delta = max - min;
-          const saturation = max === 0 ? 0 : delta / max;
+          const s = (max === min) ? 0 : delta / (1 - Math.abs(2 * l - 1));
 
-          // Prefer bright, saturated colors. Ignore nearly black/white.
-          if (saturation > maxSaturation && max > 50 && max < 240) {
-            maxSaturation = saturation;
-            bestColor = `${r}, ${g}, ${b}`;
+          // Score: Favor Saturation, penalize extremely dark/light pixels
+          // We want l between 0.15 and 0.9 (avoid pitch black and pure white)
+          if (l < 0.15 || l > 0.9) continue;
+
+          const score = s * 10; // Prioritize saturation heavily
+
+          if (score > maxScore) {
+            maxScore = score;
+            bestR = r;
+            bestG = g;
+            bestB = b;
           }
         }
 
-        // Fallback to average if no vibrant color found
-        if (maxSaturation < 0.1) {
-          // ... (Keep existing simple average or just default)
-        }
+        // Post-process: Force minimum brightness
+        const [finalR, finalG, finalB] = forceBrightColor(bestR, bestG, bestB);
+        setThemeColor(`${finalR}, ${finalG}, ${finalB}`);
 
-        setThemeColor(bestColor);
       } catch (e) {
-        console.error("Theme Extraction Failed:", e);
+        console.warn("Color extraction failed", e);
         setThemeColor('29, 185, 84');
       }
     };
@@ -112,6 +116,52 @@ function App() {
       setThemeColor('29, 185, 84');
     };
   }, [currentSong]);
+
+  // Helper: Boost lightness if too dark (RGB -> HSL -> RGB)
+  const forceBrightColor = (r, g, b) => {
+    // 1. Convert to HSL
+    r /= 255; g /= 255; b /= 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    let h, s, l = (max + min) / 2;
+
+    if (max === min) {
+      h = s = 0; // achromatic
+    } else {
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      switch (max) {
+        case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+        case g: h = (b - r) / d + 2; break;
+        case b: h = (r - g) / d + 4; break;
+      }
+      h /= 6;
+    }
+
+    // 2. Boost Lightness if needed (Ensure at least 50% lightness)
+    if (l < 0.5) l = 0.55;
+
+    // 3. Convert back to RGB
+    let r1, g1, b1;
+    if (s === 0) {
+      r1 = g1 = b1 = l;
+    } else {
+      const hue2rgb = (p, q, t) => {
+        if (t < 0) t += 1;
+        if (t > 1) t -= 1;
+        if (t < 1 / 6) return p + (q - p) * 6 * t;
+        if (t < 1 / 2) return q;
+        if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+        return p;
+      };
+      const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+      const p = 2 * l - q;
+      r1 = hue2rgb(p, q, h + 1 / 3);
+      g1 = hue2rgb(p, q, h);
+      b1 = hue2rgb(p, q, h - 1 / 3);
+    }
+
+    return [Math.round(r1 * 255), Math.round(g1 * 255), Math.round(b1 * 255)];
+  };
 
   const toggleLike = (song) => {
     if (!song) return;

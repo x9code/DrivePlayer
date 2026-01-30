@@ -220,7 +220,10 @@ async function getAudioMetadata(fileId) {
 
             const response = await driveClient.files.get(
                 { fileId: fileId, alt: 'media' },
-                { responseType: 'stream' }
+                {
+                    responseType: 'stream',
+                    headers: { 'Range': 'bytes=0-524288' } // Fetch only first 512KB for metadata
+                }
             );
 
             const { parseStream } = await import('music-metadata');

@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
-import { FaPlay, FaPause, FaStepForward, FaStepBackward, FaVolumeUp, FaRandom, FaRedo, FaChevronDown, FaExpand, FaCompress, FaHeart, FaRegHeart } from 'react-icons/fa';
+import { FaPlay, FaPause, FaStepForward, FaStepBackward, FaVolumeUp, FaRandom, FaRedo, FaChevronDown, FaExpand, FaCompress, FaHeart, FaRegHeart, FaCog } from 'react-icons/fa';
 
 // Use environment variable for API URL in production (Vercel), fall back to relative path (proxy) in dev
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -13,6 +13,18 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
     const [isExpanded, setIsExpanded] = useState(false);
     const [isFullScreen, setIsFullScreen] = useState(false);
     const [meta, setMeta] = useState({ title: null, artist: null });
+
+    // Lock Body Scroll when Expanded (Prevents background scrolling & Hides Scrollbar)
+    useEffect(() => {
+        if (isExpanded) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+        return () => {
+            document.body.style.overflow = '';
+        };
+    }, [isExpanded]);
 
     const isLiked = useMemo(() => {
         if (!currentSong) return false;
@@ -183,6 +195,14 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [currentSong, setIsPlaying, onNext, onPrev]);
 
+    const [visualizerBars, setVisualizerBars] = useState(() => {
+        return parseInt(localStorage.getItem('driveplayer_viz_bars') || '120');
+    });
+
+    useEffect(() => {
+        localStorage.setItem('driveplayer_viz_bars', visualizerBars);
+    }, [visualizerBars]);
+
     // Audio Visualizer Logic
     useEffect(() => {
         if (!isExpanded || !audioRef.current) return;
@@ -216,8 +236,22 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
 
         // Resize Canvas to Window
         const handleResize = () => {
-            canvas.width = window.innerWidth;
-            canvas.height = 300; // Fixed height
+            const dpr = window.devicePixelRatio || 1;
+            // Set internal resolution higher (physical pixels)
+            canvas.width = window.innerWidth * dpr;
+            canvas.height = 300 * dpr;
+
+            // Allow CSS to handle the display size (logical pixels)
+            // Note: We don't set style.width/height here as they are controlled by CSS classes/attributes or are implicit?
+            // Wait, we need to ensure the canvas drawing context acts as if it's drawing on logical pixels.
+            // BUT, if we scale the context, we must also ensure we don't double scale if the canvas element itself isn't sized via CSS.
+            // The canvas currently has classes `w-full h-full` in the render method, which is correct for CSS.
+            // But `handleResize` was setting `canvas.width` directly.
+
+            // To be safe and clean:
+            // 1. Internal resolution = Logical * DPR
+            // 2. Context Scale = DPR
+            ctx.scale(dpr, dpr);
         };
         window.addEventListener('resize', handleResize);
         handleResize(); // Init
@@ -228,13 +262,15 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
             animationRef.current = requestAnimationFrame(draw);
             analyserRef.current.getByteFrequencyData(dataArray);
 
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            // Clear the entire SCALED area
+            // Since we scaled the context, 0 to window.innerWidth clears the full physical width
+            ctx.clearRect(0, 0, window.innerWidth, 300);
 
-            const width = canvas.width;
-            const height = canvas.height;
+            const width = window.innerWidth; // Logical width
+            const height = 300; // Logical height
 
             // Render params
-            const renderBars = 120; // Fixed number of bars for cleaner look
+            const renderBars = visualizerBars; // Dynamic from State
             const barWidth = (width / renderBars);
             const maxFreqIndex = Math.floor(bufferLength * 0.7); // Discard ultra-highs
 
@@ -261,15 +297,48 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
                 // Height scaling
                 const barHeight = (value / 255) * (height * 0.9);
 
-                if (barHeight > 0) {
-                    // Draw with slight padding
-                    const x = i * barWidth;
-                    const w = Math.max(1, barWidth - 2);
+                // Add Glow
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = `rgba(${themeColor || '29, 185, 84'}, 0.6)`;
 
-                    // Rounded top roughly
-                    ctx.fillRect(x, height - barHeight, w, barHeight);
+                if (barHeight > 2) {
+                    // Draw with slight padding
+                    // Snap to pixels for sharpness
+                    const x = Math.floor(i * barWidth);
+                    const w = Math.max(1, Math.floor(barWidth - 2));
+                    const y = height - barHeight;
+
+                    // Modern Round Bar Drawing
+                    ctx.beginPath();
+
+                    // If bar is wide enough, round the top. If too thin, just rect.
+                    if (w > 2) {
+                        const radius = w / 2;
+                        ctx.moveTo(x, height);
+                        ctx.lineTo(x, y + radius);
+                        ctx.quadraticCurveTo(x, y, x + radius, y);
+                        ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+                        ctx.lineTo(x + w, height);
+                    } else {
+                        ctx.rect(x, y, w, barHeight);
+                    }
+
+                    ctx.fill();
+                    ctx.closePath();
+                } else if (barHeight > 0) {
+                    // Tiny sliver for very low volume
+                    ctx.fillRect(Math.floor(i * barWidth), height - 1, Math.max(1, Math.floor(barWidth - 2)), 1);
                 }
             }
+            // Reset Shadow for text
+            ctx.shadowBlur = 0;
+            // Draw Labels (Bass, Mids, Treble)
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.4)'; // Slightly more visible
+            ctx.font = '10px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('BASS', width * 0.15, height - 10);
+            ctx.fillText('MIDS', width * 0.5, height - 10);
+            ctx.fillText('TREBLE', width * 0.85, height - 10);
         };
 
         draw();
@@ -278,7 +347,7 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
             if (animationRef.current) cancelAnimationFrame(animationRef.current);
             window.removeEventListener('resize', handleResize);
         };
-    }, [isExpanded, currentSong, themeColor]);
+    }, [isExpanded, currentSong, themeColor, visualizerBars]); // Added visualizerBars dep
 
     // Resume AudioContext if suspended (browser policy)
     useEffect(() => {
@@ -460,25 +529,84 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
                 </div>
 
                 {/* Header */}
-                <div className="absolute top-6 left-6 right-6 flex justify-between items-center text-zinc-400">
+                <div className="absolute top-6 left-6 right-6 flex justify-between items-center text-zinc-400 z-20">
                     <button onClick={handleCollapse} className="hover:text-white p-2">
                         <FaChevronDown size={24} />
                     </button>
 
                     <span className="text-xs font-bold tracking-widest uppercase">Now Playing</span>
-                    <button
-                        onClick={() => {
-                            if (!isFullScreen) {
-                                document.documentElement.requestFullscreen().catch(e => console.log(e));
-                            } else {
-                                if (document.exitFullscreen) document.exitFullscreen();
-                            }
-                        }}
-                        className="hover:text-white p-2"
-                        title="Full Screen (F)"
-                    >
-                        {isFullScreen ? <FaCompress size={20} /> : <FaExpand size={20} />}
-                    </button>
+
+                    <div className="flex items-center gap-2">
+                        {/* Visualizer Settings */}
+                        <div className="relative group">
+                            <button className="hover:text-white p-2">
+                                <FaCog size={20} />
+                            </button>
+                            {/* Settings Dropdown (Animated & Glassmorphism) */}
+                            <div className="absolute right-0 top-full mt-4 w-64 bg-black/80 backdrop-blur-xl rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] border border-white/10 p-5 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 ease-out transform origin-top-right scale-95 group-hover:scale-100 z-50">
+                                <div className="flex items-center justify-between mb-4 border-b border-white/10 pb-2">
+                                    <span className="text-xs font-bold text-white tracking-widest uppercase">Settings</span>
+                                    <FaCog size={12} className="text-zinc-500 animate-spin-slow" />
+                                </div>
+
+                                <div className="flex flex-col gap-3">
+                                    <div>
+                                        <div className="flex justify-between items-center mb-2">
+                                            <span className="text-[11px] font-medium text-zinc-300">Visualizer Density</span>
+                                            <span className="text-[10px] font-mono text-primary bg-primary/10 px-1.5 py-0.5 rounded">{visualizerBars} BARS</span>
+                                        </div>
+
+                                        <div className="relative h-6 flex items-center">
+                                            {/* Track Background */}
+                                            <div className="absolute w-full h-1 bg-zinc-700 rounded-full overflow-hidden">
+                                                <div
+                                                    className="h-full bg-primary transition-all duration-100"
+                                                    style={{ width: `${((visualizerBars - 32) / (256 - 32)) * 100}%` }}
+                                                />
+                                            </div>
+
+                                            {/* Actual Slider */}
+                                            <input
+                                                type="range"
+                                                min="32"
+                                                max="256"
+                                                step="8"
+                                                value={visualizerBars}
+                                                onChange={(e) => setVisualizerBars(parseInt(e.target.value))}
+                                                className="absolute w-full h-full opacity-0 cursor-pointer z-10"
+                                            />
+
+                                            {/* Custom Thumb (Visual Only - approximated position) */}
+                                            <div
+                                                className="absolute h-3.5 w-3.5 bg-white rounded-full shadow-lg pointer-events-none transition-all duration-100"
+                                                style={{ left: `calc(${((visualizerBars - 32) / (256 - 32)) * 100}% - 7px)` }}
+                                            ></div>
+                                        </div>
+
+                                        <div className="flex justify-between text-[9px] text-zinc-500 mt-1 uppercase tracking-wider">
+                                            <span>Retro</span>
+                                            <span>Balanced</span>
+                                            <span>HD</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={() => {
+                                if (!isFullScreen) {
+                                    document.documentElement.requestFullscreen().catch(e => console.log(e));
+                                } else {
+                                    if (document.exitFullscreen) document.exitFullscreen();
+                                }
+                            }}
+                            className="hover:text-white p-2"
+                            title="Full Screen (F)"
+                        >
+                            {isFullScreen ? <FaCompress size={20} /> : <FaExpand size={20} />}
+                        </button>
+                    </div>
 
                 </div>
 
