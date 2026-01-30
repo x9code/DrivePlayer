@@ -1,19 +1,20 @@
 import React, { useState } from 'react';
-import { FaTimes, FaSave, FaCog, FaMobileAlt, FaArrowLeft } from 'react-icons/fa';
+import { IoClose, IoSaveOutline, IoSettingsOutline, IoPhonePortrait, IoArrowBack } from 'react-icons/io5';
 import axios from 'axios';
 
 // Environment variable for API URL (Production vs Dev)
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
-const SettingsModal = ({ onClose }) => {
+const SettingsModal = ({ onClose, gradientEnabled, onToggleGradient }) => {
+    // View State: 'MENU' (Main Options) | 'PASSWORD' (Change PIN Flow)
+    const [activeView, setActiveView] = useState('MENU');
+
+    // Password Flow State
     const [currentPin, setCurrentPin] = useState('');
     const [newPin, setNewPin] = useState('');
     const [confirmPin, setConfirmPin] = useState('');
     const [otp, setOtp] = useState('');
-
-    // State: 'PWD' (enter passwords) -> 'OTP' (enter verification code)
-    const [step, setStep] = useState('PWD');
-
+    const [step, setStep] = useState('PWD'); // 'PWD' -> 'OTP'
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [loading, setLoading] = useState(false);
@@ -74,6 +75,7 @@ const SettingsModal = ({ onClose }) => {
                 localStorage.setItem('driveplayer_pin', newPin);
                 setSuccess('Password updated successfully!');
                 setTimeout(() => {
+                    setActiveView('MENU'); // Go back to menu instead of closing? Or close? User choice. Let's close.
                     onClose();
                 }, 1500);
             } else {
@@ -89,26 +91,63 @@ const SettingsModal = ({ onClose }) => {
 
     return (
         <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="w-full max-w-md bg-zinc-900 border border-white/10 rounded-2xl p-6 shadow-2xl relative animate-in fade-in zoom-in duration-200">
+            <div className="w-full max-w-md bg-black/60 backdrop-blur-2xl border border-white/10 rounded-3xl p-6 shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative animate-in fade-in zoom-in duration-200">
                 <button
                     onClick={onClose}
                     className="absolute top-4 right-4 text-zinc-400 hover:text-white transition-colors"
                 >
-                    <FaTimes />
+                    <IoClose size={24} />
                 </button>
 
                 <div className="flex items-center gap-3 mb-6">
                     <div className="w-10 h-10 bg-zinc-800 rounded-full flex items-center justify-center">
-                        <FaCog className="text-primary text-lg" />
+                        <IoSettingsOutline className="text-primary text-xl" />
                     </div>
                     <h2 className="text-xl font-bold text-white">Settings</h2>
                 </div>
 
-                <div className="space-y-6">
-                    <div>
-                        <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-wider mb-4">
-                            {step === 'PWD' ? 'Change Password' : 'Verify Identity'}
-                        </h3>
+                {/* MAIN MENU VIEW */}
+                {activeView === 'MENU' && (
+                    <div className="space-y-6">
+                        {/* Option 1: Gradient */}
+                        <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5 hover:border-white/10 transition-colors">
+                            <div className="flex flex-col">
+                                <span className="font-medium text-white">Gradient</span>
+                                <span className="text-xs text-zinc-400">Enable UI background blur</span>
+                            </div>
+                            <button
+                                onClick={onToggleGradient}
+                                className={`w-12 h-6 rounded-full p-1 transition-colors duration-200 ease-in-out ${gradientEnabled ? 'bg-primary' : 'bg-zinc-700'}`}
+                            >
+                                <div className={`w-4 h-4 rounded-full bg-white shadow-sm transform transition-transform duration-200 ${gradientEnabled ? 'translate-x-6' : 'translate-x-0'}`} />
+                            </button>
+                        </div>
+
+                        {/* Option 2: Change Password */}
+                        <button
+                            onClick={() => setActiveView('PASSWORD')}
+                            className="w-full flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5 hover:border-white/10 hover:bg-white/10 transition-all text-left group"
+                        >
+                            <div className="flex flex-col">
+                                <span className="font-medium text-white group-hover:text-primary transition-colors">Change Password</span>
+                                <span className="text-xs text-zinc-400">Update your access PIN</span>
+                            </div>
+                            <IoPhonePortrait className="text-zinc-500 group-hover:text-primary transition-colors text-xl" />
+                        </button>
+                    </div>
+                )}
+
+                {/* PASSWORD FLOW VIEW */}
+                {activeView === 'PASSWORD' && (
+                    <div className="space-y-6 animate-in slide-in-from-right-10 duration-200">
+                        <div className="flex items-center gap-2 mb-2">
+                            <button onClick={() => setActiveView('MENU')} className="text-zinc-400 hover:text-white">
+                                <IoArrowBack size={20} />
+                            </button>
+                            <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-wider">
+                                {step === 'PWD' ? 'Change Password' : 'Verify Identity'}
+                            </h3>
+                        </div>
 
                         {step === 'PWD' ? (
                             <form onSubmit={handleRequestOtp} className="flex flex-col gap-4">
@@ -160,7 +199,7 @@ const SettingsModal = ({ onClose }) => {
                                 >
                                     {loading ? 'Sending OTP...' : (
                                         <>
-                                            <FaMobileAlt />
+                                            <IoPhonePortrait />
                                             <span>Verify with SMS</span>
                                         </>
                                     )}
@@ -198,7 +237,7 @@ const SettingsModal = ({ onClose }) => {
                                 >
                                     {loading ? 'Verifying...' : (
                                         <>
-                                            <FaSave />
+                                            <IoSaveOutline />
                                             <span>Confirm Change</span>
                                         </>
                                     )}
@@ -209,13 +248,13 @@ const SettingsModal = ({ onClose }) => {
                                     onClick={() => setStep('PWD')}
                                     className="w-full py-2 text-zinc-400 hover:text-white text-sm transition-colors flex items-center justify-center gap-2"
                                 >
-                                    <FaArrowLeft className="text-xs" />
+                                    <IoArrowBack className="text-xs" />
                                     <span>Back to Password</span>
                                 </button>
                             </form>
                         )}
                     </div>
-                </div>
+                )}
             </div>
         </div>
     );

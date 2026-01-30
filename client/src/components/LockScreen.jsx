@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FaLock } from 'react-icons/fa';
+import { IoLockClosedOutline } from 'react-icons/io5';
 
 const LockScreen = ({ onUnlock, isLocked }) => {
     const [pin, setPin] = useState('');
@@ -29,7 +29,7 @@ const LockScreen = ({ onUnlock, isLocked }) => {
         >
             <div className={`w-full max-w-sm bg-zinc-900/80 backdrop-blur-2xl border border-white/10 p-8 rounded-2xl shadow-2xl flex flex-col items-center gap-6 transition-all duration-500 ${shake ? 'animate-shake' : ''} ${isLocked ? 'scale-100 translate-y-0' : 'scale-110 translate-y-4'}`}>
                 <div className="w-16 h-16 bg-zinc-800 rounded-full flex items-center justify-center mb-2 shadow-lg">
-                    <FaLock className="text-primary text-2xl" />
+                    <IoLockClosedOutline className="text-primary text-3xl" />
                 </div>
 
                 <div className="text-center">

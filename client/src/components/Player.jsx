@@ -1,5 +1,9 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
-import { FaPlay, FaPause, FaStepForward, FaStepBackward, FaVolumeUp, FaRandom, FaRedo, FaChevronDown, FaExpand, FaCompress, FaHeart, FaRegHeart, FaCog } from 'react-icons/fa';
+import {
+    IoPlay, IoPause, IoPlaySkipForward, IoPlaySkipBack, IoShuffle, IoRepeat,
+    IoHeart, IoHeartOutline, IoVolumeHigh, IoVolumeMute,
+    IoChevronDown, IoResize, IoExpand, IoSettingsOutline, IoMusicalNotes
+} from 'react-icons/io5';
 
 // Use environment variable for API URL in production (Vercel), fall back to relative path (proxy) in dev
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -14,7 +18,7 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
     const [isFullScreen, setIsFullScreen] = useState(false);
     const [meta, setMeta] = useState({ title: null, artist: null });
 
-    // Lock Body Scroll when Expanded (Prevents background scrolling & Hides Scrollbar)
+    // Lock Body Scroll when Expanded
     useEffect(() => {
         if (isExpanded) {
             document.body.style.overflow = 'hidden';
@@ -47,12 +51,7 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
 
     useEffect(() => {
         if (currentSong) {
-            // Reset meta immediately
             setMeta({ title: null, artist: null });
-
-            // Log for debugging
-            // console.log("Fetching metadata for:", currentSong.name);
-
             fetch(`${API_BASE}/api/metadata/${currentSong.id}`)
                 .then(res => res.json())
                 .then(data => {
@@ -64,27 +63,20 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
 
     useEffect(() => {
         if (currentSong && audioRef.current) {
-            // ... (playback effect remains)
-
-            // ...
-
             if (isPlaying) {
                 audioRef.current.play().catch(e => console.error("Playback failed", e));
             } else {
                 audioRef.current.pause();
             }
 
-            // Sync Full Screen State
             const handleFS = () => setIsFullScreen(!!document.fullscreenElement);
             document.addEventListener('fullscreenchange', handleFS);
-            // Cleanup provided in return below
 
-            // Sync Document Title
             const titleText = meta.title || (cleanTitle ? cleanTitle(currentSong.name) : currentSong.name);
             const artistText = meta.artist || 'DrivePlayer';
             document.title = isPlaying ? `${titleText} • ${artistText}` : 'DrivePlayer';
 
-            // MediaSession API for Background Playback & Lock Screen Controls
+            // MediaSession API
             if ('mediaSession' in navigator) {
                 const folderId = currentSong.parents && currentSong.parents[0] ? currentSong.parents[0] : '';
                 const artUrl = new URL(`${API_BASE}/api/thumbnail/${currentSong.id}?folderId=${folderId}`, window.location.origin).href;
@@ -115,8 +107,6 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
                 });
                 navigator.mediaSession.setActionHandler('previoustrack', () => onPrev());
                 navigator.mediaSession.setActionHandler('nexttrack', () => onNext(false));
-
-                // Optional: Seek support
                 navigator.mediaSession.setActionHandler('seekto', (details) => {
                     if (details.seekTime && audioRef.current) {
                         audioRef.current.currentTime = details.seekTime;
@@ -135,8 +125,6 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
     useEffect(() => {
         const handleKeyDown = (e) => {
             if (!currentSong || !audioRef.current) return;
-
-            // Ignore if typing in an input
             if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
 
             switch (e.code) {
@@ -146,66 +134,21 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
                     break;
                 case 'ArrowLeft':
                     e.preventDefault();
-                    if (e.ctrlKey) {
-                        onPrev();
-                    } else {
-                        audioRef.current.currentTime = Math.max(0, audioRef.current.currentTime - 5);
-                        setProgress(audioRef.current.currentTime);
-                    }
+                    audioRef.current.currentTime = Math.max(0, audioRef.current.currentTime - 5);
+                    setProgress(audioRef.current.currentTime);
                     break;
                 case 'ArrowRight':
                     e.preventDefault();
-                    if (e.ctrlKey) {
-                        onNext(false);
-                    } else {
-                        audioRef.current.currentTime = Math.min(audioRef.current.duration || 0, audioRef.current.currentTime + 5);
-                        setProgress(audioRef.current.currentTime);
-                    }
+                    audioRef.current.currentTime = Math.min(audioRef.current.duration || 0, audioRef.current.currentTime + 5);
+                    setProgress(audioRef.current.currentTime);
                     break;
-                case 'ArrowUp':
-                    e.preventDefault();
-                    setVolume(prev => {
-                        const newVol = Math.min(1, parseFloat((prev + 0.1).toFixed(2)));
-                        audioRef.current.volume = newVol;
-                        return newVol;
-                    });
-                    break;
-                case 'ArrowDown':
-                    e.preventDefault();
-                    setVolume(prev => {
-                        const newVol = Math.max(0, parseFloat((prev - 0.1).toFixed(2)));
-                        audioRef.current.volume = newVol;
-                        return newVol;
-                    });
-                    break;
-                case 'KeyM':
-                    setVolume(prev => {
-                        if (prev > 0) {
-                            prevVolumeRef.current = prev;
-                            audioRef.current.volume = 0;
-                            return 0;
-                        } else {
-                            const restored = prevVolumeRef.current || 1;
-                            audioRef.current.volume = restored;
-                            return restored;
-                        }
-                    });
-                    break;
-                case 'KeyN':
-                    onNext(false);
-                    break;
-                case 'KeyP':
-                    onPrev();
-                    break;
+                case 'KeyN': onNext(false); break;
+                case 'KeyP': onPrev(); break;
                 case 'KeyF':
-                    if (!document.fullscreenElement) {
-                        document.documentElement.requestFullscreen().catch(e => console.log(e));
-                    } else {
-                        if (document.exitFullscreen) document.exitFullscreen();
-                    }
+                    if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(console.log);
+                    else if (document.exitFullscreen) document.exitFullscreen();
                     break;
-                default:
-                    break;
+                default: break;
             }
         };
 
@@ -221,20 +164,31 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
         localStorage.setItem('driveplayer_viz_bars', visualizerBars);
     }, [visualizerBars]);
 
+    const [showVisualizer, setShowVisualizer] = useState(false);
+
+    // Delayed Visualizer Mount (Wait for transition)
+    useEffect(() => {
+        let timer;
+        if (isExpanded) {
+            timer = setTimeout(() => setShowVisualizer(true), 550);
+        } else {
+            setShowVisualizer(false);
+        }
+        return () => clearTimeout(timer);
+    }, [isExpanded]);
+
     // Audio Visualizer Logic
     useEffect(() => {
-        if (!isExpanded || !audioRef.current) return;
+        if (!showVisualizer || !audioRef.current) return;
 
-        // Initialize Audio Context if needed
         if (!audioContextRef.current) {
             try {
                 const AudioContext = window.AudioContext || window.webkitAudioContext;
                 audioContextRef.current = new AudioContext();
                 analyserRef.current = audioContextRef.current.createAnalyser();
-                analyserRef.current.fftSize = 2048; // Higher Res (1024 bins)
-                analyserRef.current.smoothingTimeConstant = 0.85; // Smoother falloff
+                analyserRef.current.fftSize = 1024; // Optimized from 2048
+                analyserRef.current.smoothingTimeConstant = 0.92; // Smoother falloff (was 0.85)
 
-                // Connect source
                 if (!sourceRef.current) {
                     sourceRef.current = audioContextRef.current.createMediaElementSource(audioRef.current);
                     sourceRef.current.connect(analyserRef.current);
@@ -248,115 +202,74 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
 
         const canvas = canvasRef.current;
         if (!canvas) return;
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d', { alpha: true }); // optimize
         const bufferLength = analyserRef.current.frequencyBinCount;
         const dataArray = new Uint8Array(bufferLength);
 
-        // Resize Canvas to Window
         const handleResize = () => {
             const dpr = window.devicePixelRatio || 1;
-            // Set internal resolution higher (physical pixels)
             canvas.width = window.innerWidth * dpr;
             canvas.height = 300 * dpr;
-
-            // Allow CSS to handle the display size (logical pixels)
-            // Note: We don't set style.width/height here as they are controlled by CSS classes/attributes or are implicit?
-            // Wait, we need to ensure the canvas drawing context acts as if it's drawing on logical pixels.
-            // BUT, if we scale the context, we must also ensure we don't double scale if the canvas element itself isn't sized via CSS.
-            // The canvas currently has classes `w-full h-full` in the render method, which is correct for CSS.
-            // But `handleResize` was setting `canvas.width` directly.
-
-            // To be safe and clean:
-            // 1. Internal resolution = Logical * DPR
-            // 2. Context Scale = DPR
             ctx.scale(dpr, dpr);
         };
         window.addEventListener('resize', handleResize);
-        handleResize(); // Init
+        handleResize();
 
         const draw = () => {
-            if (!isExpanded) return;
+            if (!showVisualizer) return; // Stop if hidden
 
             animationRef.current = requestAnimationFrame(draw);
             analyserRef.current.getByteFrequencyData(dataArray);
 
-            // Clear the entire SCALED area
-            // Since we scaled the context, 0 to window.innerWidth clears the full physical width
             ctx.clearRect(0, 0, window.innerWidth, 300);
 
-            const width = window.innerWidth; // Logical width
-            const height = 300; // Logical height
-
-            // Render params
-            const renderBars = visualizerBars; // Dynamic from State
+            const width = window.innerWidth;
+            const height = 300;
+            const renderBars = visualizerBars; // User setting
             const barWidth = (width / renderBars);
-            const maxFreqIndex = Math.floor(bufferLength * 0.7); // Discard ultra-highs
+            // Limit frequency range to bass/mids for better visuals (0.6 instead of 0.7)
+            const maxFreqIndex = Math.floor(bufferLength * 0.6);
 
-            // Gradient
             const gradient = ctx.createLinearGradient(0, 0, 0, height);
             const color = themeColor || '29, 185, 84';
             gradient.addColorStop(0, `rgba(${color}, 0.8)`);
-            gradient.addColorStop(1, `rgba(${color}, 0.1)`);
+            gradient.addColorStop(1, `rgba(${color}, 0.05)`);
             ctx.fillStyle = gradient;
 
-            for (let i = 0; i < renderBars; i++) {
-                // Quadratic Interpolation for Frequency Index
-                // This spreads low frequencies (bass) across more bars
-                const percent = i / renderBars;
-                const index = Math.floor(maxFreqIndex * Math.pow(percent, 2.5)); // 2.5 power curve
+            // Simplified Shadow (Optimization)
+            ctx.shadowBlur = 0; // Disable heavy blur by default or reduce it
+            // ctx.shadowColor = `rgba(${themeColor || '29, 185, 84'}, 0.3)`; 
 
-                // Average a few bins around the index for smoothness
-                // (Simple neighbor smoothing)
+            for (let i = 0; i < renderBars; i++) {
+                const percent = i / renderBars;
+                // Logarithmic index for better frequency distribution
+                const index = Math.floor(maxFreqIndex * Math.pow(percent, 2.2));
+
                 let value = dataArray[index] || 0;
-                if (index > 0 && index < maxFreqIndex - 1) {
+
+                // Simple averaging for smoothness
+                if (index > 0 && index < bufferLength - 1) {
                     value = (dataArray[index - 1] + dataArray[index] + dataArray[index + 1]) / 3;
                 }
 
-                // Height scaling
                 const barHeight = (value / 255) * (height * 0.9);
 
-                // Add Glow
-                ctx.shadowBlur = 15;
-                ctx.shadowColor = `rgba(${themeColor || '29, 185, 84'}, 0.6)`;
-
                 if (barHeight > 2) {
-                    // Draw with slight padding
-                    // Snap to pixels for sharpness
-                    const x = Math.floor(i * barWidth);
-                    const w = Math.max(1, Math.floor(barWidth - 2));
+                    const x = i * barWidth;
+                    const w = Math.max(1, barWidth - 1);
                     const y = height - barHeight;
 
-                    // Modern Round Bar Drawing
+                    // Draw Rounded Bar
                     ctx.beginPath();
-
-                    // If bar is wide enough, round the top. If too thin, just rect.
-                    if (w > 2) {
-                        const radius = w / 2;
-                        ctx.moveTo(x, height);
-                        ctx.lineTo(x, y + radius);
-                        ctx.quadraticCurveTo(x, y, x + radius, y);
-                        ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
-                        ctx.lineTo(x + w, height);
+                    if (w > 3) {
+                        const radius = 2; // Fixed small radius for performance
+                        ctx.roundRect(x, y, w, barHeight, [radius, radius, 0, 0]);
                     } else {
                         ctx.rect(x, y, w, barHeight);
                     }
-
                     ctx.fill();
-                    ctx.closePath();
-                } else if (barHeight > 0) {
-                    // Tiny sliver for very low volume
-                    ctx.fillRect(Math.floor(i * barWidth), height - 1, Math.max(1, Math.floor(barWidth - 2)), 1);
                 }
             }
-            // Reset Shadow for text
-            ctx.shadowBlur = 0;
-            // Draw Labels (Bass, Mids, Treble)
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.4)'; // Slightly more visible
-            ctx.font = '10px monospace';
-            ctx.textAlign = 'center';
-            ctx.fillText('BASS', width * 0.15, height - 10);
-            ctx.fillText('MIDS', width * 0.5, height - 10);
-            ctx.fillText('TREBLE', width * 0.85, height - 10);
         };
 
         draw();
@@ -365,9 +278,8 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
             if (animationRef.current) cancelAnimationFrame(animationRef.current);
             window.removeEventListener('resize', handleResize);
         };
-    }, [isExpanded, currentSong, themeColor, visualizerBars]); // Added visualizerBars dep
+    }, [showVisualizer, currentSong, themeColor, visualizerBars]);
 
-    // Resume AudioContext if suspended (browser policy)
     useEffect(() => {
         if (isPlaying && audioContextRef.current && audioContextRef.current.state === 'suspended') {
             audioContextRef.current.resume();
@@ -406,375 +318,238 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
     };
 
     const handlePlayerClick = (e) => {
-        // Don't toggle if clicking controls or range inputs
         if (e.target.closest('button') || e.target.closest('input')) return;
-
-        if (isExpanded) {
-            setIsExpanded(false);
-        } else {
-            setIsExpanded(true);
-        }
+        setIsExpanded(prev => !prev);
     };
 
-    const handleCollapse = (e) => {
-        e.stopPropagation();
-        setIsExpanded(false);
-    }
-
-    if (!currentSong) return null; // Or return simplified placeholder
+    if (!currentSong) return null;
 
     return (
-        <div
-            className={`fixed left-0 right-0 bottom-0 z-50 bg-black/95 backdrop-blur-2xl transition-all duration-500 cubic-bezier(0.32, 0.72, 0, 1) text-white overflow-hidden`}
-            style={{
-                height: isExpanded ? '100dvh' : '6rem',
-                cursor: isExpanded ? 'default' : 'pointer'
-            }}
-            onClick={handlePlayerClick}
-        >
-            {/* --- MINI PLAYER VIEW (Always Rendered, Hidden when Expanded) --- */}
+        <>
+            {/* FLOATING CAPSULE PLAYER (Mini) */}
             <div
-                className={`absolute inset-0 flex items-center justify-between px-6 transition-opacity duration-300 ${isExpanded ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
+                className={`fixed z-50 transition-all duration-500 cubic-bezier(0.32, 0.72, 0, 1) overflow-hidden
+                    left-1/2 -translate-x-1/2
+                    ${isExpanded
+                        ? 'bottom-0 w-full h-full rounded-none bg-black' // Expanded: Full width/height, 0 bottom
+                        : 'bottom-6 w-[92vw] md:w-[600px] h-20 rounded-[32px] bg-black/40 backdrop-blur-3xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)] hover:scale-[1.02]' // Mini: Floating
+                    } text-white`}
+                onClick={handlePlayerClick}
             >
-                {/* Left: Art + Meta */}
-                <div className="flex items-center gap-4 min-w-[30%] max-w-[30%] overflow-hidden">
-                    <div className="w-14 h-14 relative flex-shrink-0 rounded shadow-md overflow-hidden">
-                        <img
-                            src={`${API_BASE}/api/thumbnail/${currentSong.id}`}
-                            alt="Art"
-                            className="w-full h-full object-cover"
-                            onError={(e) => { e.target.style.display = 'none'; }}
-                            onLoad={(e) => e.target.style.display = 'block'}
-                        />
-                    </div>
-                    <div className="flex flex-col justify-center overflow-hidden">
-                        <h3 className="font-bold text-sm truncate hover:underline cursor-pointer">
-                            {cleanTitle ? cleanTitle(currentSong.name) : currentSong.name}
-                        </h3>
-                        <p className="text-zinc-400 text-xs truncate hover:text-white hover:underline cursor-pointer">
-                            {meta.artist || 'Google Drive'}
-                        </p>
-                    </div>
-                    {/* Moved Heart Button */}
-                    <button
-                        onClick={(e) => { e.stopPropagation(); toggleLike(currentSong); }}
-                        className={`ml-4 transition-colors ${isLiked ? 'text-primary' : 'text-zinc-400 hover:text-white'}`}
-                    >
-                        {isLiked ? <FaHeart size={18} /> : <FaRegHeart size={18} />}
-                    </button>
-                </div>
-
-                {/* Center: Controls + Mini Progress */}
-                <div className="flex flex-col items-center justify-center flex-1 max-w-[40%] gap-1">
-                    <div className="flex items-center gap-4 md:gap-6">
-                        <button
-                            onClick={(e) => { e.stopPropagation(); onShuffleToggle(); }}
-                            className={`hidden md:flex transition-colors ${isShuffle ? 'text-primary' : 'text-zinc-400 hover:text-white'}`}
-                        >
-                            <FaRandom size={16} />
-                        </button>
-                        <button onClick={(e) => { e.stopPropagation(); onPrev(); }} className="hidden sm:block text-zinc-400 hover:text-white"><FaStepBackward size={20} /></button>
-
-                        <button
-                            onClick={(e) => { e.stopPropagation(); togglePlay(e); }}
-                            className="w-9 h-9 bg-white rounded-full flex items-center justify-center text-black hover:scale-105 transition-transform"
-                        >
-                            {isPlaying ? <FaPause size={14} /> : <FaPlay size={14} className="ml-0.5" />}
-                        </button>
-
-
-
-                        <button onClick={(e) => { e.stopPropagation(); onNext(false); }} className="text-zinc-400 hover:text-white"><FaStepForward size={20} /></button>
-                        <button
-                            onClick={(e) => { e.stopPropagation(); onRepeatToggle(); }}
-                            className={`hidden md:flex transition-colors ${repeatMode > 0 ? 'text-primary' : 'text-zinc-400 hover:text-white'}`}
-                        >
-                            <FaRedo size={16} />
-                        </button>
-                    </div>
-
-                    {/* Mini Progress Bar */}
-                    <div className="hidden md:flex w-full items-center gap-2 text-xs text-zinc-400 font-mono mt-1 group" onClick={(e) => e.stopPropagation()}>
-                        <span className="min-w-[40px] text-right">{formatTime(progress)}</span>
-                        <div className="flex-1 h-1 bg-zinc-600 rounded-lg cursor-pointer relative group-hover:h-1.5 transition-all">
-                            <input
-                                type="range"
-                                min="0"
-                                max={duration || 0}
-                                value={progress}
-                                onChange={handleSeek}
-                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                {/* Visualizer Background (Only visible when Expanded) */}
+                {isExpanded && (
+                    <div className="absolute inset-0 overflow-hidden pointer-events-none -z-10">
+                        {!artError && (
+                            <img
+                                src={`${API_BASE}/api/thumbnail/${currentSong.id}`}
+                                alt=""
+                                className="w-full h-full object-cover blur-[100px] scale-150 opacity-40 animate-pulse-slow"
                             />
-                            <div
-                                className="h-full bg-white rounded-lg relative group-hover:bg-primary transition-colors"
-                                style={{ width: `${duration ? (progress / duration) * 100 : 0}%` }}
-                            ></div>
+                        )}
+                        <div className="absolute inset-0 bg-black/40"></div>
+
+                        {/* Audio Visualizer Canvas */}
+                        <div className={`absolute bottom-0 left-0 w-full h-64 pointer-events-none z-0 mix-blend-screen transition-opacity duration-1000 ${showVisualizer ? 'opacity-60' : 'opacity-0'}`}>
+                            <canvas ref={canvasRef} width={1000} height={300} className="w-full h-full" />
                         </div>
-                        <span className="min-w-[40px]">{formatTime(duration)}</span>
                     </div>
-                </div>
+                )}
 
-                {/* Right: Volume */}
-                <div className="hidden md:flex flex-shrink-0 w-28 justify-end items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                    <FaVolumeUp className="text-zinc-400 text-xs" />
-                    <input
-                        type="range"
-                        min="0"
-                        max="1"
-                        step="0.01"
-                        value={volume}
-                        onChange={handleVolume}
-                        className="w-16 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer hover:bg-primary"
-                    />
-                </div>
-            </div>
+                {/* --- MINI CONTENT --- */}
+                <div className={`absolute inset-0 flex items-center justify-between px-2 pr-6 transition-all duration-300 ${isExpanded ? 'opacity-0 pointer-events-none scale-95' : 'opacity-100 scale-100'}`}>
 
-
-            {/* --- FULL SCREEN VIEW (Absolute Overlay, Fades In) --- */}
-            <div
-                className={`absolute inset-0 flex flex-col items-center justify-center p-8 transition-opacity duration-300 delay-100 ${isExpanded ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
-            >
-                {/* Dynamic Glow Background */}
-                <div className="absolute inset-0 overflow-hidden pointer-events-none -z-10 transform-gpu">
-                    {!artError && (
-                        <img
-                            src={`${API_BASE}/api/thumbnail/${currentSong.id}`}
-                            alt=""
-                            className="w-full h-full object-cover blur-[100px] scale-150 opacity-40 will-change-transform"
-                        />
-                    )}
-                    <div className="absolute inset-0 bg-black/40"></div>
-                </div>
-
-                {/* Header */}
-                <div className="absolute top-6 left-6 right-6 flex justify-between items-center text-zinc-400 z-20">
-                    <button onClick={handleCollapse} className="hover:text-white p-2">
-                        <FaChevronDown size={24} />
-                    </button>
-
-                    <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-xs font-bold tracking-widest uppercase mr-[-0.25em]">Now Playing</span>
-
-                    <div className="flex items-center gap-2">
-                        {/* Visualizer Settings */}
-                        <div className="relative group">
-                            <button className="hover:text-white p-2">
-                                <FaCog size={20} />
-                            </button>
-                            {/* Settings Dropdown (Animated & Glassmorphism) */}
-                            <div className="absolute right-0 top-full mt-4 w-64 bg-black/80 backdrop-blur-xl rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] border border-white/10 p-5 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 ease-out transform origin-top-right scale-95 group-hover:scale-100 z-50">
-                                <div className="flex items-center justify-between mb-4 border-b border-white/10 pb-2">
-                                    <span className="text-xs font-bold text-white tracking-widest uppercase">Settings</span>
-                                    <FaCog size={12} className="text-zinc-500 animate-spin-slow" />
-                                </div>
-
-                                <div className="flex flex-col gap-3">
-                                    <div>
-                                        <div className="flex justify-between items-center mb-2">
-                                            <span className="text-[11px] font-medium text-zinc-300">Visualizer Density</span>
-                                            <span className="text-[10px] font-mono text-primary bg-primary/10 px-1.5 py-0.5 rounded">{visualizerBars} BARS</span>
-                                        </div>
-
-                                        <div className="relative h-6 flex items-center">
-                                            {/* Track Background */}
-                                            <div className="absolute w-full h-1 bg-zinc-700 rounded-full overflow-hidden">
-                                                <div
-                                                    className="h-full bg-primary transition-all duration-100"
-                                                    style={{ width: `${((visualizerBars - 32) / (256 - 32)) * 100}%` }}
-                                                />
-                                            </div>
-
-                                            {/* Actual Slider */}
-                                            <input
-                                                type="range"
-                                                min="32"
-                                                max="256"
-                                                step="8"
-                                                value={visualizerBars}
-                                                onChange={(e) => setVisualizerBars(parseInt(e.target.value))}
-                                                className="absolute w-full h-full opacity-0 cursor-pointer z-10"
-                                            />
-
-                                            {/* Custom Thumb (Visual Only - approximated position) */}
-                                            <div
-                                                className="absolute h-3.5 w-3.5 bg-white rounded-full shadow-lg pointer-events-none transition-all duration-100"
-                                                style={{ left: `calc(${((visualizerBars - 32) / (256 - 32)) * 100}% - 7px)` }}
-                                            ></div>
-                                        </div>
-
-                                        <div className="flex justify-between text-[9px] text-zinc-500 mt-1 uppercase tracking-wider">
-                                            <span>Retro</span>
-                                            <span>Balanced</span>
-                                            <span>HD</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <button
-                            onClick={() => {
-                                if (!isFullScreen) {
-                                    document.documentElement.requestFullscreen().catch(e => console.log(e));
-                                } else {
-                                    if (document.exitFullscreen) document.exitFullscreen();
-                                }
-                            }}
-                            className="hover:text-white p-2"
-                            title="Full Screen (F)"
-                        >
-                            {isFullScreen ? <FaCompress size={20} /> : <FaExpand size={20} />}
-                        </button>
-                    </div>
-
-                </div>
-
-                {/* Audio Visualizer Canvas (Bottom Screen) */}
-                <div className="absolute bottom-0 left-0 w-full h-64 pointer-events-none z-0">
-                    <canvas
-                        ref={canvasRef}
-                        width={1000}
-                        height={300}
-                        className="w-full h-full opacity-100"
-                    />
-                </div>
-
-                {/* Content */}
-                <div className="relative z-10 flex flex-col items-center w-full max-w-md gap-6">
-                    {/* Art */}
-                    <div className="w-64 h-64 lg:w-80 lg:h-80 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden relative bg-zinc-900 flex items-center justify-center">
-                        {!artError ? (
+                    {/* Left: Art & Text */}
+                    <div className="flex items-center gap-3 overflow-hidden flex-1">
+                        <div className="w-16 h-16 p-1 flex-shrink-0">
                             <img
                                 src={`${API_BASE}/api/thumbnail/${currentSong.id}`}
                                 alt="Art"
-                                className="w-full h-full object-cover"
-                                onError={() => setArtError(true)}
+                                className="w-full h-full object-cover rounded-full shadow-md animate-[spin_10s_linear_infinite]"
+                                style={{ animationPlayState: isPlaying ? 'running' : 'paused' }}
+                                onError={(e) => { e.target.style.display = 'none'; }}
                             />
-                        ) : (
-                            <div className="flex flex-col items-center justify-center opacity-50">
-                                <FaVolumeUp size={64} className="mb-4" />
-                                <span className="text-sm tracking-widest uppercase">DrivePlayer</span>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Meta */}
-                    <div className="text-center w-full">
-                        <div className="flex items-center justify-center gap-4 mb-1">
-                            <h3 className="font-bold text-white truncate text-2xl">
-                                {meta.title || (cleanTitle ? cleanTitle(currentSong.name) : currentSong.name)}
-                            </h3>
-                            <button
-                                onClick={(e) => { e.stopPropagation(); toggleLike(currentSong); }}
-                                className={`transition-colors transform active:scale-95 ${isLiked ? 'text-primary' : 'text-zinc-600 hover:text-white'}`}
-                            >
-                                {isLiked ? <FaHeart size={22} /> : <FaRegHeart size={22} />}
-                            </button>
                         </div>
-                        <p className="text-zinc-400 truncate text-base">
-                            {meta.artist || 'Google Drive'}
-                        </p>
-                    </div>
-
-                    {/* Progress */}
-                    <div className="w-full flex flex-col gap-2 relative">
-                        <div className="w-full h-1 bg-gray-600 rounded-lg cursor-pointer group relative z-10">
-                            <input
-                                type="range"
-                                min="0"
-                                max={duration || 0}
-                                value={progress || 0}
-                                onChange={handleSeek}
-                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                            />
-                            <div
-                                className="h-full bg-primary rounded-lg relative"
-                                style={{ width: `${duration ? (progress / duration) * 100 : 0}%` }}
-                            >
-                                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-md"></div>
-                            </div>
-                        </div>
-                        <div className="flex justify-between text-xs text-zinc-400 font-mono">
-                            <span>{formatTime(progress)}</span>
-                            <span>{formatTime(duration)}</span>
+                        <div className="flex flex-col overflow-hidden">
+                            <h3 className="font-semibold text-sm truncate text-white">{cleanTitle ? cleanTitle(currentSong.name) : currentSong.name}</h3>
+                            <p className="text-zinc-400 text-xs truncate">{meta.artist || 'Google Drive'}</p>
                         </div>
                     </div>
 
-                    {/* Controls */}
-                    <div className="flex items-center gap-6 justify-center w-full">
+                    {/* Right: Controls */}
+                    <div className="flex items-center gap-4">
                         <button
-                            onClick={(e) => { e.stopPropagation(); onShuffleToggle(); }}
-                            className={`group relative transition-colors ${isShuffle ? 'text-primary' : 'text-zinc-400 hover:text-white'}`}
+                            onClick={(e) => { e.stopPropagation(); toggleLike(currentSong); }}
+                            className={`transition-colors hidden sm:block ${isLiked ? 'text-primary' : 'text-zinc-400 hover:text-white'}`}
                         >
-                            <FaRandom size={18} />
-                            {isShuffle && <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-1 h-1 bg-primary rounded-full"></div>}
-                            <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-zinc-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                                Shuffle
-                            </span>
+                            {isLiked ? <IoHeart size={20} /> : <IoHeartOutline size={20} />}
                         </button>
 
-                        <button
-                            onClick={(e) => { e.stopPropagation(); onPrev(); }}
-                            className="group relative text-zinc-200 hover:text-white"
-                        >
-                            <FaStepBackward size={24} />
-                            <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-zinc-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                                Previous (P)
-                            </span>
+                        <button onClick={(e) => { e.stopPropagation(); onPrev(); }} className="text-zinc-300 hover:text-white hidden sm:block">
+                            <IoPlaySkipBack size={20} />
                         </button>
 
                         <button
                             onClick={(e) => { e.stopPropagation(); togglePlay(e); }}
-                            className="group relative w-14 h-14 bg-white rounded-full flex items-center justify-center text-black hover:scale-105 transition-transform"
+                            className="w-10 h-10 bg-white text-black rounded-full flex items-center justify-center hover:scale-105 transition-transform shadow-lg"
                         >
-                            {isPlaying ? <FaPause size={20} /> : <FaPlay size={20} className="ml-1" />}
-                            <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-zinc-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                                {isPlaying ? 'Pause (Space)' : 'Play (Space)'}
-                            </span>
+                            {isPlaying ? <IoPause size={18} /> : <IoPlay size={20} className="pl-0.5" />}
                         </button>
 
-                        <button
-                            onClick={(e) => { e.stopPropagation(); onNext(false); }}
-                            className="group relative text-zinc-200 hover:text-white"
-                        >
-                            <FaStepForward size={24} />
-                            <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-zinc-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                                Next (N)
-                            </span>
-                        </button>
-
-                        <button
-                            onClick={(e) => { e.stopPropagation(); onRepeatToggle(); }}
-                            className={`group relative transition-colors ${repeatMode > 0 ? 'text-primary' : 'text-zinc-400 hover:text-white'}`}
-                        >
-                            <FaRedo size={18} />
-                            {repeatMode === 2 && <span className="absolute -top-1.5 -right-1.5 text-[10px] font-bold bg-zinc-800 text-primary px-1 rounded-full">1</span>}
-                            {repeatMode > 0 && <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-1 h-1 bg-primary rounded-full"></div>}
-                            <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-zinc-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                                {repeatMode === 0 ? 'Repeat Off' : repeatMode === 1 ? 'Repeat All' : 'Repeat One'}
-                            </span>
+                        <button onClick={(e) => { e.stopPropagation(); onNext(false); }} className="text-zinc-300 hover:text-white">
+                            <IoPlaySkipForward size={20} />
                         </button>
                     </div>
 
-                    {/* Volume */}
-                    {/* Volume removed from UI, kept shortcuts */}
-                    {/* <div className="w-full max-w-sm flex items-center gap-4 mt-6" onClick={(e) => e.stopPropagation()}>...</div> */}
+                    {/* Progress Bar (Attached to bottom of capsule) */}
+                    <div className="absolute bottom-0 left-6 right-6 h-[2px] bg-white/10 rounded-full overflow-hidden">
+                        <div
+                            className="h-full bg-primary shadow-[0_0_10px_rgba(29,185,84,0.5)]"
+                            style={{ width: `${duration ? (progress / duration) * 100 : 0}%` }}
+                        />
+                    </div>
                 </div>
-            </div>
 
-            {/* Hidden Audio Element */}
-            {currentSong && (
-                <audio
-                    ref={audioRef}
-                    crossOrigin="anonymous"
-                    src={`${API_BASE}/api/stream/${currentSong.id}`}
-                    onTimeUpdate={handleTimeUpdate}
-                    onEnded={() => onNext(true)}
-                    autoPlay
-                    onPlay={() => setIsPlaying(true)}
-                    onPause={() => setIsPlaying(false)}
-                />
-            )}
-        </div>
+
+                {/* --- EXPANDED CONTENT --- */}
+                <div className={`absolute inset-0 flex flex-col items-center justify-center p-8 transition-all duration-500 delay-100 ${isExpanded ? 'opacity-100 scale-100' : 'opacity-0 pointer-events-none scale-95'}`}>
+
+                    {/* Header */}
+                    <div className="absolute top-8 left-8 right-8 flex justify-between items-center text-zinc-400 z-20">
+                        <button onClick={(e) => { e.stopPropagation(); setIsExpanded(false); }} className="glass-button w-10 h-10 rounded-full flex items-center justify-center hover:text-white">
+                            <IoChevronDown size={24} />
+                        </button>
+                        <span className="text-xs font-bold tracking-[0.2em] text-white/50 uppercase">Now Playing</span>
+                        <div className="flex gap-3">
+                            {/* Settings Toggle */}
+                            <div className="relative group">
+                                <button className="glass-button w-10 h-10 rounded-full flex items-center justify-center hover:text-white">
+                                    <IoSettingsOutline size={20} />
+                                </button>
+                                {/* Simple Settings Tooltip/Menu */}
+                                <div className="absolute right-0 top-full mt-2 w-48 glass-panel p-4 rounded-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
+                                    <span className="text-xs font-bold text-zinc-500 block mb-2">VISUALIZER</span>
+                                    <input
+                                        type="range" min="32" max="256" step="8"
+                                        value={visualizerBars}
+                                        onChange={(e) => setVisualizerBars(parseInt(e.target.value))}
+                                        className="w-full h-1 bg-zinc-600 rounded-lg appearance-none cursor-pointer"
+                                    />
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+                                    else if (document.exitFullscreen) document.exitFullscreen();
+                                }}
+                                className="glass-button w-10 h-10 rounded-full flex items-center justify-center hover:text-white"
+                            >
+                                {isFullScreen ? <IoResize size={18} /> : <IoExpand size={18} />}
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Main Content */}
+                    <div className="flex flex-col items-center w-full max-w-md gap-8 z-10">
+                        {/* Artwork */}
+                        <div className="w-72 h-72 md:w-96 md:h-96 rounded-3xl shadow-[0_30px_60px_rgba(0,0,0,0.6)] overflow-hidden bg-black/20 ring-1 ring-white/10 group relative">
+                            {!artError ? (
+                                <img
+                                    src={`${API_BASE}/api/thumbnail/${currentSong.id}`}
+                                    alt="Art"
+                                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                                    onError={() => setArtError(true)}
+                                />
+                            ) : (
+                                <div className="w-full h-full flex items-center justify-center text-zinc-600">
+                                    <IoMusicalNotes size={64} />
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Text */}
+                        <div className="text-center space-y-1">
+                            <div className="flex items-center justify-center gap-3">
+                                <h2 className="text-3xl font-bold text-white truncate max-w-xs">{meta.title || (cleanTitle ? cleanTitle(currentSong.name) : currentSong.name)}</h2>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); toggleLike(currentSong); }}
+                                    className={`transition-colors ${isLiked ? 'text-primary' : 'text-zinc-500 hover:text-white'}`}
+                                >
+                                    {isLiked ? <IoHeart size={24} /> : <IoHeartOutline size={24} />}
+                                </button>
+                            </div>
+                            <p className="text-lg text-zinc-400 font-medium">{meta.artist || 'Unknown Artist'}</p>
+                        </div>
+
+                        {/* Progress Bar */}
+                        <div className="w-full space-y-2 group">
+                            <div className="w-full h-1.5 bg-white/10 rounded-full cursor-pointer relative overflow-visible">
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max={duration || 0}
+                                    value={progress || 0}
+                                    onChange={handleSeek}
+                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
+                                />
+                                <div
+                                    className="h-full bg-primary rounded-full relative"
+                                    style={{ width: `${duration ? (progress / duration) * 100 : 0}%` }}
+                                >
+                                    <div className="absolute right-0 top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity scale-0 group-hover:scale-100"></div>
+                                </div>
+                            </div>
+                            <div className="flex justify-between text-xs font-medium text-zinc-500 font-mono">
+                                <span>{formatTime(progress)}</span>
+                                <span>{formatTime(duration)}</span>
+                            </div>
+                        </div>
+
+                        {/* Main Controls */}
+                        <div className="flex items-center justify-between w-full max-w-xs px-4">
+                            <button onClick={(e) => { e.stopPropagation(); onShuffleToggle(); }} className={`transition-colors ${isShuffle ? 'text-primary' : 'text-zinc-500 hover:text-white'}`}>
+                                <IoShuffle size={24} />
+                            </button>
+
+                            <button onClick={(e) => { e.stopPropagation(); onPrev(); }} className="text-white hover:scale-110 transition-transform">
+                                <IoPlaySkipBack size={32} />
+                            </button>
+
+                            <button
+                                onClick={(e) => { e.stopPropagation(); togglePlay(e); }}
+                                className="w-20 h-20 bg-white text-black rounded-full flex items-center justify-center hover:scale-105 transition-transform shadow-[0_0_30px_rgba(255,255,255,0.3)]"
+                            >
+                                {isPlaying ? <IoPause size={32} /> : <IoPlay size={36} className="pl-1" />}
+                            </button>
+
+                            <button onClick={(e) => { e.stopPropagation(); onNext(false); }} className="text-white hover:scale-110 transition-transform">
+                                <IoPlaySkipForward size={32} />
+                            </button>
+
+                            <button onClick={(e) => { e.stopPropagation(); onRepeatToggle(); }} className={`transition-colors ${repeatMode > 0 ? 'text-primary' : 'text-zinc-500 hover:text-white'} relative`}>
+                                <IoRepeat size={24} />
+                                {repeatMode === 2 && <span className="absolute -top-1 -right-1 text-[8px] bg-primary text-black px-1 rounded-full font-bold">1</span>}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Audio Element */}
+                {currentSong && (
+                    <audio
+                        ref={audioRef}
+                        crossOrigin="anonymous"
+                        src={`${API_BASE}/api/stream/${currentSong.id}`}
+                        onTimeUpdate={handleTimeUpdate}
+                        onEnded={() => onNext(true)}
+                        autoPlay
+                        onPlay={() => setIsPlaying(true)}
+                        onPause={() => setIsPlaying(false)}
+                    />
+                )}
+            </div>
+        </>
     );
 };
 

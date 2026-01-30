@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import axios from 'axios'
 import Player from './components/Player'
 import SongList from './components/SongList'
-import { FaGoogleDrive, FaSearch, FaTimes, FaHeart, FaRegHeart, FaLock, FaCog } from 'react-icons/fa'
+import { IoLogoGoogle, IoSearchOutline, IoCloseOutline, IoHeart, IoHeartOutline, IoLockClosedOutline, IoSettingsOutline } from 'react-icons/io5'
 import LockScreen from './components/LockScreen'
 import SettingsModal from './components/SettingsModal'
 
@@ -29,6 +29,8 @@ function App() {
   const [currentFolderId, setCurrentFolderId] = useState(null)
   const [currentFolderName, setCurrentFolderName] = useState('Library'); // Default title
   const rootFolderId = useRef(null); // Track root folder ID to hide back button
+  // --- Queue System ---
+  const [queue, setQueue] = useState([]);
 
   // Favorites State (Persisted in localStorage)
   const [likedSongs, setLikedSongs] = useState(() => {
@@ -52,6 +54,15 @@ function App() {
     // Apply theme to CSS variable
     document.documentElement.style.setProperty('--theme-color', themeColor);
   }, [themeColor]);
+
+  // Gradient Background State
+  const [gradientEnabled, setGradientEnabled] = useState(() => {
+    return localStorage.getItem('driveplayer_gradient') === 'true';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('driveplayer_gradient', gradientEnabled);
+  }, [gradientEnabled]);
 
   // Extract Vibrant Color from Album Art
   useEffect(() => {
@@ -392,19 +403,10 @@ function App() {
     // 1. Check Cache
     if (fileCache.current[cacheKey]) {
       // console.log("Cache hit for", cacheKey);
-      setFiles(fileCache.current[cacheKey]);
+      setFiles(fileCache.current[cacheKey].files);
+      setCurrentFolderName(fileCache.current[cacheKey].folderName);
       setLoading(false);
-      // We need to restore folder name logic here if cached, but cache structure only saves files currently.
-      // To strictly follow "cache hit", we might miss name. 
-      // Simplified: If cache hit, we might not have name stored. 
-      // Fix: Let's skip cache hit optimization for Name update OR assume 'Library' if null, which is not ideal.
-      // Better: Store object in cache { files, folderName }
-      // For now, let's just re-fetch to get name or set default if root.
-      // Actually, let's keep it simple: If cache hit, just use files. Name might lag. 
-      // Let's NOT use cache for now to ensure name is correct, OR upgrade cache structure.
-      // UPGRADING CACHE STRUCTURE ON THE FLY IS RISKY.
-      // Let's just fetch from API to get the name for now, it's fast enough.
-      // OR: manually set name if root/favorites.
+      return;
     }
 
     // Special Case: Favorites
@@ -426,7 +428,7 @@ function App() {
       setCurrentFolderName(res.data.folderName || 'Library');
 
       // 2. Update Cache
-      fileCache.current[cacheKey] = res.data.files; // Still caching just files for now to avoid breaking other logic
+      fileCache.current[cacheKey] = { files: res.data.files, folderName: res.data.folderName || 'Library' };
 
       // Update current folder id if not set (initial load)
       if (!folderId && res.data.folderId) {
@@ -435,7 +437,7 @@ function App() {
         }
         setCurrentFolderId(res.data.folderId);
         // Also cache under the actual ID for future reference
-        fileCache.current[res.data.folderId] = res.data.files;
+        fileCache.current[res.data.folderId] = { files: res.data.files, folderName: res.data.folderName || 'Library' };
       }
     } catch (error) {
       console.error("Error fetching files:", error);
@@ -504,8 +506,15 @@ function App() {
       // If we seek/play media, that might trigger updates, but navigation is key here
       const state = event.state;
       if (state && state.folderId) {
-        setCurrentFolderId(state.folderId);
-        fetchFiles(state.folderId);
+        if (state.folderId === 'favorites') {
+          setCurrentFolderId('favorites');
+          setFiles(likedSongs);
+          setCurrentFolderName('Favorites');
+          setLoading(false);
+        } else {
+          setCurrentFolderId(state.folderId);
+          fetchFiles(state.folderId);
+        }
       } else {
         // Back to root
         setCurrentFolderId(null);
@@ -517,7 +526,7 @@ function App() {
 
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
-  }, []);
+  }, [likedSongs]); // Add likedSongs as dependency for favorites state
 
   const handleFolderClick = (folderId) => {
     if (isSearching) {
@@ -540,10 +549,9 @@ function App() {
     };
     window.addEventListener('audio-ended', handleSongEnded);
     return () => window.removeEventListener('audio-ended', handleSongEnded);
-  }, [currentSong, isShuffle, repeatMode, sortedFiles]); // sortedFiles dependency? -> We will fix this by using a queue ref or state
+  }, [currentSong, isShuffle, repeatMode, queue]); // queue dependency is important here
 
-  // --- Queue System ---
-  const [queue, setQueue] = useState([]);
+
 
   // Handle Play (Single Song Click in Current View)
   const handlePlay = (song) => {
@@ -702,25 +710,38 @@ function App() {
   // }
 
   return (
-    <div className="min-h-screen bg-darker text-white selection:bg-primary selection:text-black">
+    <div className="min-h-screen bg-darker text-white selection:bg-primary selection:text-black relative z-0">
+      {/* Dynamic Background Gradient */}
+      <div
+        className={`fixed inset-0 pointer-events-none transition-opacity duration-1000 -z-10 ${gradientEnabled ? 'opacity-100' : 'opacity-0'}`}
+        style={{
+          background: `
+            linear-gradient(to bottom, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 160px),
+            radial-gradient(circle at 50% -30%, rgba(${themeColor}, 0.5) 0%, transparent 90%),
+            radial-gradient(circle at 0% 0%, rgba(${themeColor}, 0.2) 0%, transparent 50%),
+            radial-gradient(circle at 100% 0%, rgba(${themeColor}, 0.2) 0%, transparent 50%),
+            linear-gradient(180deg, rgba(${themeColor}, 0.1) 0%, rgba(5,5,5,1) 100%)
+          `
+        }}
+      />
       {/* Header */}
-      <header className="fixed top-0 w-full z-40 bg-black border-b border-white/5 h-16 flex items-center px-6 justify-between">
+      <header className={`fixed top-0 w-full z-40 h-20 flex items-center px-6 justify-between transition-colors duration-500 ${gradientEnabled ? 'bg-black/40 backdrop-blur-3xl border-b-0 shadow-lg' : 'bg-black/60 backdrop-blur-xl border-b border-white/5'}`}>
         <div
           onClick={handleGoHome}
           className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
         >
-          <FaGoogleDrive className="text-primary text-2xl" />
-          <h1 className="text-xl font-bold tracking-tight hidden md:block">DrivePlayer</h1>
+          <IoLogoGoogle className="text-primary text-2xl" />
+          <h1 className="text-xl font-semibold tracking-tight hidden md:block">DrivePlayer</h1>
         </div>
 
-        {/* Search Bar */}
+        {/* Search Bar - VisionOS Style */}
         <div className="relative w-full max-w-md mx-4">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <FaSearch className="text-gray-400" />
+            <IoSearchOutline className="text-white/40 text-lg" />
           </div>
           <input
             type="text"
-            className="block w-full pl-10 pr-10 py-2 border border-white/10 rounded-full leading-5 bg-white/5 text-gray-300 placeholder-gray-500 focus:outline-none focus:bg-white/10 focus:ring-1 focus:ring-primary sm:text-sm transition-colors"
+            className="block w-full pl-10 pr-10 py-2.5 rounded-full leading-5 bg-white/10 border border-white/5 text-gray-200 placeholder-white/30 focus:outline-none focus:bg-white/15 focus:ring-1 focus:ring-white/20 transition-all backdrop-blur-md shadow-inner"
             placeholder="Search songs..."
             value={searchQuery}
             onChange={handleSearchChange}
@@ -730,28 +751,28 @@ function App() {
               onClick={clearSearch}
               className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-white"
             >
-              <FaTimes />
+              <IoCloseOutline size={20} />
             </button>
           )}
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           {/* Settings Button */}
           <button
             onClick={() => setShowSettings(true)}
-            className="hidden md:flex items-center justify-center p-2 rounded-full bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-colors"
+            className="glass-button w-10 h-10 rounded-full flex items-center justify-center text-zinc-300 hover:text-white hover:scale-105"
             title="Settings"
           >
-            <FaCog className="text-sm" />
+            <IoSettingsOutline className="text-xl" />
           </button>
 
-          {/* Lock Button (Added) */}
+          {/* Lock Button */}
           <button
             onClick={handleLock}
-            className="flex items-center justify-center p-2 rounded-full bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-colors"
+            className="glass-button w-10 h-10 rounded-full flex items-center justify-center text-zinc-300 hover:text-white hover:scale-105"
             title="Lock App"
           >
-            <FaLock className="text-sm" />
+            <IoLockClosedOutline className="text-xl" />
           </button>
 
           <button
@@ -762,9 +783,9 @@ function App() {
               setFiles(likedSongs);
               window.history.pushState({ folderId: 'favorites' }, '', '?folder=favorites');
             }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full transition-colors ${currentFolderId === 'favorites' ? 'bg-primary text-black' : 'bg-white/5 hover:bg-white/10 text-white'}`}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-full transition-all duration-300 border ${currentFolderId === 'favorites' ? 'bg-primary text-black border-transparent font-bold shadow-glow' : 'glass-button text-white border-white/5'}`}
           >
-            <FaHeart className={currentFolderId === 'favorites' ? 'text-black' : 'text-primary'} />
+            {currentFolderId === 'favorites' ? <IoHeart className="text-lg" /> : <IoHeartOutline className="text-primary text-lg" />}
             <span className="hidden sm:inline font-medium">Favorites</span>
           </button>
         </div>
@@ -772,7 +793,7 @@ function App() {
       </header>
 
       {/* Main Content */}
-      <main className="mt-16 h-[calc(100vh-4rem)] overflow-y-auto custom-scrollbar relative">
+      <main className="mt-20 h-[calc(100vh-5rem)] overflow-y-auto custom-scrollbar relative pb-32">
 
         <SongList
           title={isSearching ? `Search Results for "${searchQuery}"` : currentFolderName}
@@ -810,7 +831,13 @@ function App() {
       />
 
       {/* Modals */}
-      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+      {showSettings && (
+        <SettingsModal
+          onClose={() => setShowSettings(false)}
+          gradientEnabled={gradientEnabled}
+          onToggleGradient={() => setGradientEnabled(!gradientEnabled)}
+        />
+      )}
 
       {/* Lock Screen Overlay - Always rendered for animation */}
       <LockScreen isLocked={!isAuthenticated} onUnlock={handleUnlock} />
