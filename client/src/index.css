@@ -11,12 +11,29 @@
 }
 
 /* VisionOS Glass Utilities */
-.glass-panel {
-  @apply bg-black/40 backdrop-blur-3xl border border-white/10 shadow-2xl;
+/* Glass Surface (Mini Player & Top Bar) */
+.glass-surface {
+  @apply bg-transparent border border-white/5 transition-all duration-300;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2) !important;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%) !important;
 }
 
 .glass-button {
   @apply bg-white/5 hover:bg-white/15 active:bg-white/20 backdrop-blur-md transition-all duration-200 border border-white/5;
+}
+
+@media (max-width: 768px) {
+
+  .glass-panel,
+  .glass-surface {
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+    background: rgba(20, 20, 20, 0.8) !important;
+    /* Performance fallback for mobile */
+  }
 }
 
 /* Custom Scrollbar - Thinner & Cleaner */
@@ -41,11 +58,13 @@
 /* Range Slider - Apple Style */
 input[type=range] {
   -webkit-appearance: none;
+  appearance: none;
   background: transparent;
 }
 
 input[type=range]::-webkit-slider-thumb {
   -webkit-appearance: none;
+  appearance: none;
   height: 16px;
   width: 16px;
   border-radius: 50%;

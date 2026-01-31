@@ -5,6 +5,11 @@ const { google } = require('googleapis');
 const fs = require('fs');
 const path = require('path');
 
+// Import new services
+const CacheService = require('./services/cacheService');
+const DriveService = require('./services/driveService');
+const MetadataService = require('./services/metadataService');
+
 dotenv.config();
 
 const app = express();
@@ -47,15 +52,30 @@ async function authenticateDrive() {
     }
 }
 
-authenticateDrive();
+// Initialize services
+let driveService = null;
+let cacheService = null;
+let metadataService = null;
 
-// Caches
-const metadataCache = new Map();
-// Ensure cache directory exists
 const CACHE_DIR = path.join(__dirname, 'cache');
-if (!fs.existsSync(CACHE_DIR)) {
-    fs.mkdirSync(CACHE_DIR);
+
+async function initializeServices() {
+    await authenticateDrive();
+
+    if (driveClient) {
+        // Initialize services
+        driveService = new DriveService(driveClient);
+        cacheService = new CacheService(CACHE_DIR);
+        await cacheService.init();
+        metadataService = new MetadataService(driveService, cacheService, CACHE_DIR);
+
+        console.log('[Services] All services initialized successfully');
+    } else {
+        console.error('[Services] Failed to initialize - Drive client not authenticated');
+    }
 }
+
+initializeServices();
 
 app.get('/', (req, res) => {
     res.send('DrivePlayer Server Running');
@@ -92,19 +112,7 @@ app.get('/api/files', async (req, res) => {
             orderBy: 'folder, name'
         });
 
-        // Cache metadata
-        if (filesRes.data.files) {
-            filesRes.data.files.forEach(file => {
-                if (file.mimeType !== 'application/vnd.google-apps.folder') {
-                    metadataCache.set(file.id, {
-                        size: file.size,
-                        mimeType: file.mimeType,
-                        name: file.name,
-                        createdTime: file.createdTime
-                    });
-                }
-            });
-        }
+
 
         res.json({
             files: filesRes.data.files || [],
@@ -114,6 +122,25 @@ app.get('/api/files', async (req, res) => {
 
     } catch (error) {
         console.error(error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// API: Recursive File Fetch (for Folder Play)
+app.get('/api/files/recursive', async (req, res) => {
+    if (!driveClient) return res.status(500).json({ error: 'Drive not authenticated' });
+
+    const folderId = req.query.folderId;
+    if (!folderId) return res.status(400).json({ error: 'Folder ID required' });
+
+    try {
+        console.log(`Fetch recursive: ${folderId}`);
+        const files = await driveService.getFilesRecursive(folderId);
+        console.log(`Found ${files.length} files recursively`);
+
+        res.json({ files });
+    } catch (error) {
+        console.error('Recursive fetch error:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -133,18 +160,7 @@ app.get('/api/search', async (req, res) => {
             pageSize: 50
         });
 
-        // Cache metadata for results
-        if (filesRes.data.files) {
-            filesRes.data.files.forEach(file => {
-                if (file.mimeType !== 'application/vnd.google-apps.folder') {
-                    metadataCache.set(file.id, {
-                        size: file.size,
-                        mimeType: file.mimeType,
-                        name: file.name
-                    });
-                }
-            });
-        }
+
 
         res.json(filesRes.data.files || []);
     } catch (error) {
@@ -158,120 +174,38 @@ app.get('/api/songs', async (req, res) => {
     res.redirect('/api/files');
 });
 
-// Concurrency Limiter
-class Queue {
-    constructor(concurrency) {
-        this.concurrency = concurrency;
-        this.running = 0;
-        this.queue = [];
-    }
 
-    add(fn) {
-        return new Promise((resolve, reject) => {
-            this.queue.push({ fn, resolve, reject });
-            this.next();
-        });
-    }
 
-    next() {
-        if (this.running >= this.concurrency || this.queue.length === 0) return;
-
-        const { fn, resolve, reject } = this.queue.shift();
-        this.running++;
-
-        fn().then(resolve).catch(reject).finally(() => {
-            this.running--;
-            this.next();
-        });
-    }
-}
-
-// Limit metadata extraction to 2 concurrent requests to prevent choking the network/CPU
-const metadataQueue = new Queue(2);
-
-// Helper: Get or Fetch Metadata
-async function getAudioMetadata(fileId) {
-    // Check in-memory metadata cache for ID3 tags
-    if (metadataCache.has(fileId) && metadataCache.get(fileId).hasTags) {
-        return metadataCache.get(fileId);
-    }
-
-    // Need to fetch and parse
-    if (!driveClient) throw new Error('Drive not authenticated');
-
-    // Wrap the heavy lifting in the queue
-    return metadataQueue.add(async () => {
-        // Double check cache inside queue in case it was populated while waiting
-        if (metadataCache.has(fileId) && metadataCache.get(fileId).hasTags) {
-            return metadataCache.get(fileId);
-        }
-
-        try {
-            let mimeType, fileSize;
-            if (metadataCache.has(fileId)) {
-                const cached = metadataCache.get(fileId);
-                mimeType = cached.mimeType;
-                fileSize = cached.size;
-            } else {
-                const metadataRes = await driveClient.files.get({ fileId, fields: 'mimeType, size' });
-                mimeType = metadataRes.data.mimeType;
-                fileSize = metadataRes.data.size;
-            }
-
-            const response = await driveClient.files.get(
-                { fileId: fileId, alt: 'media' },
-                {
-                    responseType: 'stream',
-                    headers: { 'Range': 'bytes=0-524288' } // Fetch only first 512KB for metadata
-                }
-            );
-
-            const { parseStream } = await import('music-metadata');
-            const metadata = await parseStream(response.data, { mimeType: mimeType }, { skipPostHeaders: true });
-
-            console.log(`[Metadata] Parsed: ${fileId} | Size: ${fileSize} | Type: ${mimeType}`);
-
-            const tags = {
-                // Spread existing first so we overwrite with fresh data
-                ...(metadataCache.get(fileId) || {}),
-                title: metadata.common.title || null,
-                artist: metadata.common.artist || null,
-                album: metadata.common.album || null,
-                hasTags: true,
-                mimeType: mimeType,
-                size: fileSize,
-            };
-
-            // Cache Tags in Memory
-            metadataCache.set(fileId, tags);
-
-            // Handle Picture (Disk Cache)
-            const picture = metadata.common.picture && metadata.common.picture[0];
-            const cachePath = path.join(CACHE_DIR, `${fileId}`);
-            if (picture) {
-                fs.writeFileSync(cachePath, picture.data);
-                tags.pictureFormat = picture.format;
-            }
-
-            return tags;
-        } catch (error) {
-            console.error(`Metadata error for ${fileId}:`, error.message);
-            throw error;
-        }
-    });
-}
-
-// API: Get Metadata (Title, Artist)
+// API: Get Metadata (Title, Artist, Album)
 app.get('/api/metadata/:fileId', async (req, res) => {
+    if (!metadataService) {
+        return res.status(500).json({ error: 'Metadata service not initialized' });
+    }
+
     try {
-        const tags = await getAudioMetadata(req.params.fileId);
+        // Add timeout to prevent metadata fetch from blocking playback
+        const timeoutMs = 10000; // 10 seconds
+        const metadataPromise = metadataService.getOrParseMetadata(req.params.fileId);
+        const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Metadata timeout')), timeoutMs)
+        );
+
+        const metadata = await Promise.race([metadataPromise, timeoutPromise]);
         res.json({
-            title: tags.title,
-            artist: tags.artist,
-            album: tags.album
+            title: metadata.title,
+            artist: metadata.artist,
+            album: metadata.album,
+            duration: metadata.duration
         });
     } catch (error) {
-        res.status(500).json({ error: 'Failed to fetch metadata' });
+        console.error('[API] Metadata fetch error:', error.message);
+        // Return minimal metadata so playback isn't blocked
+        res.json({
+            title: 'Loading...',
+            artist: 'Loading...',
+            album: 'Unknown',
+            duration: 0
+        });
     }
 });
 
@@ -340,7 +274,7 @@ app.get('/api/folder/cover/:folderId', (req, res) => {
 // ----------------------------
 
 
-// API: Get Thumbnail
+// API: Get Thumbnail (Album Artwork)
 app.get('/api/thumbnail/:fileId', async (req, res) => {
     const fileId = req.params.fileId;
     const cachePath = path.join(CACHE_DIR, `${fileId}`);
@@ -350,18 +284,33 @@ app.get('/api/thumbnail/:fileId', async (req, res) => {
         return res.sendFile(cachePath);
     }
 
-    // 2. Parse if not cached (this will populate disk cache)
+    // 2. Parse metadata if not cached (will extract and save artwork)
+    if (!metadataService) {
+        return res.status(500).send('Metadata service not available');
+    }
+
     try {
-        await getAudioMetadata(fileId);
+        let metadata = await metadataService.getOrParseMetadata(fileId);
 
         // Re-check disk cache
         if (fs.existsSync(cachePath)) {
             return res.sendFile(cachePath);
-        } else {
-            return res.status(404).send('No picture found');
         }
+
+        // If missing but metadata claims it exists, force regenerate
+        if (metadata.artwork) {
+            console.log(`[API] Artwork missing for ${fileId}, forcing regeneration...`);
+            await metadataService.getOrParseMetadata(fileId, true); // force=true
+
+            if (fs.existsSync(cachePath)) {
+                return res.sendFile(cachePath);
+            }
+        }
+
+        return res.status(404).send('No artwork found');
     } catch (error) {
-        res.status(500).send('Error');
+        console.error('[API] Thumbnail extraction error:', error.message);
+        res.status(500).send('Error extracting artwork');
     }
 });
 
@@ -377,26 +326,24 @@ app.get('/api/stream/:fileId', async (req, res) => {
     try {
         let fileSize, mimeType;
 
-        // Robust check: Cache must have size
-        if (metadataCache.has(fileId) && metadataCache.get(fileId).size) {
-            const cached = metadataCache.get(fileId);
-            fileSize = parseInt(cached.size);
-            mimeType = cached.mimeType;
-            console.log(`[Stream] Cache hit: Size=${fileSize}`);
+        // Get file metadata from Drive
+        // Use driveService if available, otherwise direct API call
+        if (driveService) {
+            console.log(`[Stream] Using driveService to fetch metadata`);
+            const fileInfo = await driveService.getFileMetadata(fileId);
+            fileSize = fileInfo.size;
+            mimeType = fileInfo.mimeType;
         } else {
-            console.log(`[Stream] Cache miss for size. Fetching...`);
+            console.log(`[Stream] Fetching metadata directly from Drive API`);
             const fileMetadata = await driveClient.files.get({
                 fileId: fileId,
                 fields: 'size, mimeType'
             });
             fileSize = parseInt(fileMetadata.data.size);
             mimeType = fileMetadata.data.mimeType;
-
-            // Merge carefully
-            const existing = metadataCache.get(fileId) || {};
-            metadataCache.set(fileId, { ...existing, size: fileSize, mimeType });
-            console.log(`[Stream] Fetched: Size=${fileSize}`);
         }
+
+        console.log(`[Stream] File metadata: Size=${fileSize}, Type=${mimeType}`);
 
         // MIME Type Normalization for Streaming
         if (mimeType === 'audio/x-m4a') mimeType = 'audio/mp4';
@@ -504,9 +451,7 @@ app.post('/api/auth/otp/send', async (req, res) => {
 app.post('/api/auth/otp/verify', (req, res) => {
     const { otp } = req.body;
 
-    // Debugging Logs
-    console.log(`[OTP Verify] Received: '${otp}' (${typeof otp})`);
-    console.log(`[OTP Verify] Stored:   '${currentOtp}' (${typeof currentOtp})`);
+
 
     if (!otp) return res.status(400).json({ error: 'OTP required' });
 

@@ -64,6 +64,15 @@ function App() {
     localStorage.setItem('driveplayer_gradient', gradientEnabled);
   }, [gradientEnabled]);
 
+  // Mobile Detection
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   // Extract Vibrant Color from Album Art
   useEffect(() => {
     if (!currentSong) {
@@ -71,61 +80,66 @@ function App() {
       return;
     }
 
-    const img = new Image();
-    img.crossOrigin = "Anonymous";
-    img.src = `${API_BASE}/api/thumbnail/${currentSong.id}`;
+    // Debounce to improve performance on rapid skips
+    const timer = setTimeout(() => {
+      const img = new Image();
+      img.crossOrigin = "Anonymous";
+      img.src = `${API_BASE}/api/thumbnail/${currentSong.id}`;
 
-    img.onload = () => {
-      try {
-        const canvas = document.createElement('canvas');
-        canvas.width = 10;
-        canvas.height = 10;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, 10, 10);
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = 10;
+          canvas.height = 10;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, 10, 10);
 
-        const imageData = ctx.getImageData(0, 0, 10, 10).data;
-        let maxScore = -1;
-        let bestR = 29, bestG = 185, bestB = 84;
+          const imageData = ctx.getImageData(0, 0, 10, 10).data;
+          let maxScore = -1;
+          let bestR = 29, bestG = 185, bestB = 84;
 
-        for (let i = 0; i < imageData.length; i += 4) {
-          const r = imageData[i];
-          const g = imageData[i + 1];
-          const b = imageData[i + 2];
+          for (let i = 0; i < imageData.length; i += 4) {
+            const r = imageData[i];
+            const g = imageData[i + 1];
+            const b = imageData[i + 2];
 
-          // Calculate HSL components
-          const max = Math.max(r, g, b);
-          const min = Math.min(r, g, b);
-          const l = (max + min) / 2 / 255;
-          const delta = max - min;
-          const s = (max === min) ? 0 : delta / (1 - Math.abs(2 * l - 1));
+            // Calculate HSL components
+            const max = Math.max(r, g, b);
+            const min = Math.min(r, g, b);
+            const l = (max + min) / 2 / 255;
+            const delta = max - min;
+            const s = (max === min) ? 0 : delta / (1 - Math.abs(2 * l - 1));
 
-          // Score: Favor Saturation, penalize extremely dark/light pixels
-          // We want l between 0.15 and 0.9 (avoid pitch black and pure white)
-          if (l < 0.15 || l > 0.9) continue;
+            // Score: Favor Saturation, penalize extremely dark/light pixels
+            // We want l between 0.15 and 0.9 (avoid pitch black and pure white)
+            if (l < 0.15 || l > 0.9) continue;
 
-          const score = s * 10; // Prioritize saturation heavily
+            const score = s * 10; // Prioritize saturation heavily
 
-          if (score > maxScore) {
-            maxScore = score;
-            bestR = r;
-            bestG = g;
-            bestB = b;
+            if (score > maxScore) {
+              maxScore = score;
+              bestR = r;
+              bestG = g;
+              bestB = b;
+            }
           }
+
+          // Post-process: Force minimum brightness
+          const [finalR, finalG, finalB] = forceBrightColor(bestR, bestG, bestB);
+          setThemeColor(`${finalR}, ${finalG}, ${finalB}`);
+
+        } catch (e) {
+          console.warn("Color extraction failed", e);
+          setThemeColor('29, 185, 84');
         }
+      };
 
-        // Post-process: Force minimum brightness
-        const [finalR, finalG, finalB] = forceBrightColor(bestR, bestG, bestB);
-        setThemeColor(`${finalR}, ${finalG}, ${finalB}`);
-
-      } catch (e) {
-        console.warn("Color extraction failed", e);
+      img.onerror = () => {
         setThemeColor('29, 185, 84');
-      }
-    };
+      };
+    }, 500); // 500ms delay
 
-    img.onerror = () => {
-      setThemeColor('29, 185, 84');
-    };
+    return () => clearTimeout(timer);
   }, [currentSong]);
 
   // Helper: Boost lightness if too dark (RGB -> HSL -> RGB)
@@ -321,8 +335,7 @@ function App() {
       return 0;
     });
 
-    // 3. Return combined (Folders always first, sorted by name usually, but for now we keep folders as is or sort them too? 
-    // Let's keep folders top, songs sorted)
+    // 3. Return combined (Folders always first)
     return [...folders, ...songs];
   }, [files, sortOption, sortDirection]);
 
@@ -403,7 +416,7 @@ function App() {
 
     // 1. Check Cache
     if (fileCache.current[cacheKey]) {
-      // console.log("Cache hit for", cacheKey);
+
       setFiles(fileCache.current[cacheKey].files);
       setCurrentFolderName(fileCache.current[cacheKey].folderName);
       setLoading(false);
@@ -574,11 +587,11 @@ function App() {
     // We do NOT setFiles (so view stays same)
 
     try {
-      const url = `${API_BASE}/api/files?folderId=${folderId}`;
+      const url = `${API_BASE}/api/files/recursive?folderId=${folderId}`;
       const res = await axios.get(url);
 
       const fetchedFiles = res.data.files;
-      // Filter for songs
+      // Filter for songs (already filtered by backend, but safe to keep)
       const songList = fetchedFiles.filter(f => f.mimeType !== 'application/vnd.google-apps.folder');
 
       if (songList.length > 0) {
@@ -734,19 +747,17 @@ function App() {
     window.history.pushState(null, '', '/');
   };
 
-  // If not authenticated, render Lock Screen ONLY
-  // Placed here to ensure all hooks run above
-  // if (!isAuthenticated) {
-  //   return <LockScreen onUnlock={handleUnlock} />;
-  // }
+
 
   return (
     <div className="min-h-screen bg-darker text-white selection:bg-primary selection:text-black relative z-0">
-      {/* Dynamic Background Gradient */}
+      {/* Dynamic Background Gradient (Simplified for Mobile) */}
       <div
         className={`fixed inset-0 pointer-events-none transition-opacity duration-1000 -z-10 ${gradientEnabled ? 'opacity-100' : 'opacity-0'}`}
         style={{
-          background: `
+          background: window.innerWidth < 768
+            ? `linear-gradient(180deg, rgba(${themeColor}, 0.15) 0%, rgba(5,5,5,1) 100%)`
+            : `
             linear-gradient(to bottom, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 160px),
             radial-gradient(circle at 50% -30%, rgba(${themeColor}, 0.5) 0%, transparent 90%),
             radial-gradient(circle at 0% 0%, rgba(${themeColor}, 0.2) 0%, transparent 50%),
@@ -755,8 +766,8 @@ function App() {
           `
         }}
       />
-      {/* Header */}
-      <header className={`fixed top-0 w-full z-40 h-20 flex items-center px-6 justify-between transition-colors duration-500 ${gradientEnabled ? 'bg-black/40 backdrop-blur-3xl border-b-0 shadow-lg' : 'bg-black/60 backdrop-blur-xl border-b border-white/5'}`}>
+      {/* Header - Glassmorphism Refined */}
+      <header className="fixed top-0 w-full z-50 h-20 flex items-center px-6 justify-between transition-all duration-300 glass-surface">
         <div className="flex items-center gap-3 min-w-0 mr-4">
           {((currentFolderId && currentFolderId !== rootFolderId.current) || isSearching) && (
             <button onClick={handleBack} className="glass-button w-10 h-10 rounded-full flex items-center justify-center text-white hover:scale-105 shrink-0" title="Go Back">
@@ -765,10 +776,12 @@ function App() {
           )}
           <div
             onClick={handleGoHome}
-            className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity min-w-0"
+            className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity min-w-0 group"
           >
-            <IoLogoGoogle className="text-primary text-2xl shrink-0" />
-            <h1 className="text-xl font-semibold tracking-tight hidden md:block truncate">{currentFolderName || 'DrivePlayer'}</h1>
+            <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center backdrop-blur-md border border-white/5 group-hover:bg-white/10 transition-colors">
+              <IoLogoGoogle className="text-primary text-xl shrink-0 drop-shadow-[0_0_8px_rgba(var(--theme-color),0.5)]" />
+            </div>
+            <h1 className="text-xl font-semibold tracking-tight hidden md:block truncate drop-shadow-sm">{currentFolderName || 'DrivePlayer'}</h1>
           </div>
         </div>
 
@@ -779,7 +792,7 @@ function App() {
           </div>
           <input
             type="text"
-            className="block w-full pl-10 pr-10 py-2.5 rounded-full leading-5 bg-white/10 border border-white/5 text-gray-200 placeholder-white/30 focus:outline-none focus:bg-white/15 focus:ring-1 focus:ring-white/20 transition-all backdrop-blur-md shadow-inner"
+            className="block w-full pl-10 pr-10 py-2.5 rounded-full leading-5 bg-white/5 border border-white/10 text-gray-200 placeholder-white/30 focus:outline-none focus:bg-white/10 focus:ring-1 focus:ring-white/20 transition-all backdrop-blur-md shadow-lg"
             placeholder="Search..."
             value={searchQuery}
             onChange={handleSearchChange}
@@ -801,7 +814,7 @@ function App() {
             <div className="relative">
               <button
                 onClick={() => setShowSortMenu(!showSortMenu)}
-                className="glass-button w-10 h-10 sm:w-auto rounded-full sm:px-4 flex items-center justify-center gap-2 text-zinc-300 hover:text-white hover:bg-white/10"
+                className="glass-button w-10 h-10 sm:w-auto rounded-full sm:px-4 flex items-center justify-center gap-2 text-zinc-300 hover:text-white hover:scale-105"
                 title="Sort"
               >
                 <IoFilterOutline size={20} />
@@ -873,7 +886,7 @@ function App() {
               setFiles(likedSongs);
               window.history.pushState({ folderId: 'favorites' }, '', '?folder=favorites');
             }}
-            className={`glass-button w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${currentFolderId === 'favorites' ? 'text-primary bg-primary/10 border-primary/50' : 'text-zinc-300 hover:text-white'}`}
+            className={`glass-button w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-105 ${currentFolderId === 'favorites' ? 'text-primary bg-primary/10 border-primary/50' : 'text-zinc-300 hover:text-white'}`}
             title="Favorites"
           >
             {currentFolderId === 'favorites' ? <IoHeart className="text-xl" /> : <IoHeartOutline className="text-xl" />}

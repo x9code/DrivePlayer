@@ -5,3 +5,5 @@ dist
 service-account.json
 server/service-account.json
 server/cache/**
+server/config/credentials.json
+server/config/tokens.json

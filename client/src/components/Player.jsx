@@ -361,17 +361,27 @@ const Player = ({ currentSong, isPlaying, setIsPlaying, onNext, onPrev, isShuffl
                     {/* Left: Art & Text */}
                     <div className="flex items-center gap-3 overflow-hidden flex-1">
                         <div className="w-16 h-16 p-1 flex-shrink-0">
-                            <img
-                                src={`${API_BASE}/api/thumbnail/${currentSong.id}`}
-                                alt="Art"
-                                className="w-full h-full object-cover rounded-full shadow-md animate-[spin_10s_linear_infinite]"
-                                style={{ animationPlayState: isPlaying ? 'running' : 'paused' }}
-                                onError={(e) => { e.target.style.display = 'none'; }}
-                            />
+                            <div className="relative w-full h-full rounded-full overflow-hidden shadow-md">
+                                {/* Fallback Icon (always behind) */}
+                                <div className="absolute inset-0 bg-zinc-800 flex items-center justify-center">
+                                    <IoMusicalNotes className="text-zinc-500 text-2xl animate-pulse" />
+                                </div>
+                                {/* Album Art */}
+                                {!artError && (
+                                    <img
+                                        key={currentSong.id} // Force remount on song change
+                                        src={`${API_BASE}/api/thumbnail/${currentSong.id}`}
+                                        alt="Art"
+                                        className="relative w-full h-full object-cover rounded-full animate-[spin_10s_linear_infinite]"
+                                        style={{ animationPlayState: isPlaying ? 'running' : 'paused' }}
+                                        onError={() => setArtError(true)}
+                                    />
+                                )}
+                            </div>
                         </div>
                         <div className="flex flex-col overflow-hidden">
-                            <h3 className="font-semibold text-sm truncate text-white">{cleanTitle ? cleanTitle(currentSong.name) : currentSong.name}</h3>
-                            <p className="text-zinc-400 text-xs truncate">{meta.artist || 'Google Drive'}</p>
+                            <h3 className="font-semibold text-sm truncate text-white">{meta.title || (cleanTitle ? cleanTitle(currentSong.name) : currentSong.name)}</h3>
+                            <p className="text-zinc-400 text-xs truncate">{meta.artist || 'Unknown Artist'}</p>
                         </div>
                     </div>
 
